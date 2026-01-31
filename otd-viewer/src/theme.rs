@@ -1,12 +1,11 @@
 //! Color palette and styling constants for the viewer.
 //!
 //! Design philosophy:
-//! - Industrial/professional look suitable for manufacturing environment
-//! - High contrast for easy visibility
-//! - Glass sheet is neutral (grey/slate) - it's the "paper"
-//! - Pieces are the focus - use warm colors that stand out
-//! - Waste areas are clearly marked as "bad" (hatched/red tint)
-//! - Cuts are high-visibility (bright lines)
+//! - Calm, professional look suitable for manufacturing environment
+//! - Glass sheet has a subtle blue-green tint like actual glass
+//! - Pieces are outlined clearly but not loudly
+//! - Cuts are subtle (they're just guides)
+//! - Selection/hover is where we add emphasis
 
 #![allow(dead_code)] // Many constants reserved for future features
 
@@ -16,35 +15,37 @@ use egui::Color32;
 // BACKGROUND
 // =============================================================================
 pub const BACKGROUND: Color32 = Color32::from_rgb(25, 25, 28);
-pub const CANVAS_BG: Color32 = Color32::from_rgb(32, 34, 37);
+pub const CANVAS_BG: Color32 = Color32::from_rgb(30, 32, 35);
 
 // =============================================================================
-// GLASS SHEET - Neutral slate/grey, like actual glass on a dark table
+// GLASS SHEET - Subtle blue-green tint like actual glass
 // =============================================================================
-pub const SHEET_FILL: Color32 = Color32::from_rgb(55, 65, 75);
-pub const SHEET_BORDER: Color32 = Color32::from_rgb(100, 115, 130);
-pub const TRIM_ZONE: Color32 = Color32::from_rgba_premultiplied(40, 45, 50, 200);
+pub const SHEET_FILL: Color32 = Color32::from_rgb(45, 60, 65);
+pub const SHEET_BORDER: Color32 = Color32::from_rgb(70, 90, 95);
+pub const TRIM_ZONE: Color32 = Color32::from_rgba_premultiplied(35, 40, 45, 180);
 
 // =============================================================================
-// CUTS - Bright red/orange for high visibility
+// CUTS - Subtle, muted lines (not the focus)
 // =============================================================================
-pub const LINEAR_CUT: Color32 = Color32::from_rgb(255, 85, 50);
-pub const LINEAR_CUT_HOVER: Color32 = Color32::from_rgb(255, 150, 100);
+pub const LINEAR_CUT: Color32 = Color32::from_rgb(120, 90, 80);
+pub const LINEAR_CUT_HOVER: Color32 = Color32::from_rgb(180, 140, 120);
 
 // =============================================================================
-// PIECES - Warm amber/gold tones that pop against the cool grey sheet
+// PIECES - Clean, understated borders with very subtle fill
 // =============================================================================
-pub const PIECE_BORDER: Color32 = Color32::from_rgb(255, 200, 100);
-pub const PIECE_FILL: Color32 = Color32::from_rgba_premultiplied(255, 180, 80, 50);
-pub const PIECE_HOVER_FILL: Color32 = Color32::from_rgba_premultiplied(255, 200, 100, 100);
-pub const PIECE_HOVER_BORDER: Color32 = Color32::from_rgb(255, 230, 150);
+pub const PIECE_BORDER: Color32 = Color32::from_rgb(180, 190, 200);
+pub const PIECE_FILL: Color32 = Color32::from_rgba_premultiplied(100, 120, 130, 30);
+pub const PIECE_HOVER_FILL: Color32 = Color32::from_rgba_premultiplied(150, 170, 180, 60);
+pub const PIECE_HOVER_BORDER: Color32 = Color32::from_rgb(220, 230, 240);
+pub const PIECE_SELECTED_FILL: Color32 = Color32::from_rgba_premultiplied(255, 200, 100, 80);
+pub const PIECE_SELECTED_BORDER: Color32 = Color32::from_rgb(255, 210, 120);
 
 // =============================================================================
-// SHAPES - Teal/cyan for custom contours (distinct from pieces)
+// SHAPES - Slightly brighter to distinguish custom contours
 // =============================================================================
-pub const SHAPE_STROKE: Color32 = Color32::from_rgb(0, 220, 180);
-pub const SHAPE_FILL: Color32 = Color32::from_rgba_premultiplied(0, 200, 160, 60);
-pub const SHAPE_HOVER_STROKE: Color32 = Color32::from_rgb(100, 255, 220);
+pub const SHAPE_STROKE: Color32 = Color32::from_rgb(100, 180, 160);
+pub const SHAPE_FILL: Color32 = Color32::from_rgba_premultiplied(80, 150, 130, 40);
+pub const SHAPE_HOVER_STROKE: Color32 = Color32::from_rgb(140, 210, 190);
 
 // =============================================================================
 // WASTE REGIONS - Muted red tint to indicate "scrap"

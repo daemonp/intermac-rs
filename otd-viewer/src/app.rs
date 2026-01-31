@@ -40,6 +40,9 @@ pub struct ViewerApp {
 
     /// Index of piece currently being hovered
     hovered_piece: Option<usize>,
+
+    /// Index of currently selected piece
+    selected_piece: Option<usize>,
 }
 
 impl ViewerApp {
@@ -57,6 +60,7 @@ impl ViewerApp {
             fit_pending: false,
             mouse_sheet_pos: None,
             hovered_piece: None,
+            selected_piece: None,
         };
 
         // Load initial file if provided
@@ -79,6 +83,7 @@ impl ViewerApp {
                 self.file_path = Some(path.clone());
                 self.error_message = None;
                 self.fit_pending = true;
+                self.selected_piece = None;
 
                 self.status_message = format!(
                     "Loaded: {} | {} pattern(s) | {} pieces",
@@ -213,6 +218,35 @@ impl ViewerApp {
                     });
 
                     ui.separator();
+
+                    // Selected piece info
+                    if let Some(idx) = self.selected_piece {
+                        if let Some(piece) = schema.pieces.get(idx) {
+                            ui.heading(format!("Piece #{}", idx + 1));
+                            ui.separator();
+
+                            ui.label(format!("Width:  {:.4}\"", piece.width));
+                            ui.label(format!("Height: {:.4}\"", piece.height));
+                            ui.label(format!("Area:   {:.2} sq in", piece.width * piece.height));
+
+                            ui.separator();
+                            ui.label(format!(
+                                "Position: ({:.2}\", {:.2}\")",
+                                piece.x_origin, piece.y_origin
+                            ));
+
+                            if piece.shape_index.is_some() {
+                                ui.label("Has custom shape");
+                            }
+
+                            ui.separator();
+                            if ui.button("Clear Selection (Esc)").clicked() {
+                                self.selected_piece = None;
+                            }
+
+                            ui.separator();
+                        }
+                    }
                 }
 
                 // Layer controls
@@ -263,6 +297,7 @@ impl ViewerApp {
                         {
                             self.current_schema += 1;
                             self.fit_pending = true;
+                            self.selected_piece = None;
                         }
 
                         // Schema indicator
@@ -281,6 +316,7 @@ impl ViewerApp {
                         {
                             self.current_schema -= 1;
                             self.fit_pending = true;
+                            self.selected_piece = None;
                         }
 
                         ui.separator();
@@ -354,6 +390,11 @@ impl ViewerApp {
                     }
                 }
 
+                // Handle click to select piece
+                if response.clicked() {
+                    self.selected_piece = self.hovered_piece;
+                }
+
                 // Render schema if loaded
                 if let Some(schema) = self.current_schema() {
                     canvas::render_schema(
@@ -363,6 +404,7 @@ impl ViewerApp {
                         canvas_rect,
                         &self.layers,
                         self.hovered_piece,
+                        self.selected_piece,
                     );
                 } else {
                     // Show placeholder text
@@ -416,11 +458,18 @@ impl ViewerApp {
                 if i.key_pressed(Key::PageUp) && self.current_schema > 0 {
                     self.current_schema -= 1;
                     self.fit_pending = true;
+                    self.selected_piece = None;
                 }
                 if i.key_pressed(Key::PageDown) && self.current_schema < self.schemas.len() - 1 {
                     self.current_schema += 1;
                     self.fit_pending = true;
+                    self.selected_piece = None;
                 }
+            }
+
+            // Escape: Clear selection
+            if i.key_pressed(Key::Escape) {
+                self.selected_piece = None;
             }
 
             // Number keys for layer toggles

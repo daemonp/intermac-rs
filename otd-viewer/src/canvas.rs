@@ -17,6 +17,7 @@ pub fn render_schema(
     canvas_rect: Rect,
     layers: &LayerVisibility,
     hovered_piece: Option<usize>,
+    selected_piece: Option<usize>,
 ) {
     // Render layers from bottom to top
     if layers.sheet {
@@ -37,7 +38,14 @@ pub fn render_schema(
     }
 
     if layers.pieces {
-        render_pieces(painter, schema, transform, canvas_rect, hovered_piece);
+        render_pieces(
+            painter,
+            schema,
+            transform,
+            canvas_rect,
+            hovered_piece,
+            selected_piece,
+        );
     }
 
     if layers.shapes {
@@ -45,7 +53,14 @@ pub fn render_schema(
     }
 
     if layers.labels {
-        render_labels(painter, schema, transform, canvas_rect, hovered_piece);
+        render_labels(
+            painter,
+            schema,
+            transform,
+            canvas_rect,
+            hovered_piece,
+            selected_piece,
+        );
     }
 }
 
@@ -294,10 +309,19 @@ fn render_pieces(
     transform: &ViewTransform,
     canvas_rect: Rect,
     hovered_piece: Option<usize>,
+    selected_piece: Option<usize>,
 ) {
     for (i, piece) in schema.pieces.iter().enumerate() {
         let is_hovered = hovered_piece == Some(i);
-        render_piece(painter, piece, transform, canvas_rect, is_hovered);
+        let is_selected = selected_piece == Some(i);
+        render_piece(
+            painter,
+            piece,
+            transform,
+            canvas_rect,
+            is_hovered,
+            is_selected,
+        );
     }
 }
 
@@ -308,6 +332,7 @@ fn render_piece(
     transform: &ViewTransform,
     canvas_rect: Rect,
     is_hovered: bool,
+    is_selected: bool,
 ) {
     let min = transform.sheet_to_screen(
         Pos2::new(piece.x_origin as f32, piece.y_origin as f32),
@@ -323,8 +348,14 @@ fn render_piece(
 
     let rect = Rect::from_two_pos(min, max);
 
-    // Choose colors based on hover state
-    let (fill_color, border_color, stroke_width) = if is_hovered {
+    // Choose colors based on selection/hover state
+    let (fill_color, border_color, stroke_width) = if is_selected {
+        (
+            theme::PIECE_SELECTED_FILL,
+            theme::PIECE_SELECTED_BORDER,
+            theme::SELECTION_STROKE_WIDTH,
+        )
+    } else if is_hovered {
         (
             theme::PIECE_HOVER_FILL,
             theme::PIECE_HOVER_BORDER,
@@ -408,6 +439,7 @@ fn render_labels(
     transform: &ViewTransform,
     canvas_rect: Rect,
     hovered_piece: Option<usize>,
+    selected_piece: Option<usize>,
 ) {
     for (i, piece) in schema.pieces.iter().enumerate() {
         let center = transform.sheet_to_screen(
@@ -419,28 +451,42 @@ fn render_labels(
         );
 
         let is_hovered = hovered_piece == Some(i);
-        let label = format!("#{}", i + 1);
+        let is_selected = selected_piece == Some(i);
+        let is_emphasized = is_hovered || is_selected;
+
+        // Build label text - show dimensions for selected piece
+        let label = if is_selected {
+            format!("#{}\n{:.2}\" × {:.2}\"", i + 1, piece.width, piece.height)
+        } else {
+            format!("#{}", i + 1)
+        };
+
+        let font_size = if is_emphasized { 14.0 } else { 12.0 };
 
         // Draw shadow for better readability
         painter.text(
             center + egui::Vec2::new(1.0, 1.0),
             egui::Align2::CENTER_CENTER,
             &label,
-            egui::FontId::proportional(if is_hovered { 14.0 } else { 12.0 }),
+            egui::FontId::proportional(font_size),
             theme::LABEL_SHADOW,
         );
 
         // Draw label
+        let text_color = if is_selected {
+            theme::SELECTION
+        } else if is_hovered {
+            theme::PIECE_HOVER_BORDER
+        } else {
+            theme::LABEL_TEXT
+        };
+
         painter.text(
             center,
             egui::Align2::CENTER_CENTER,
             label,
-            egui::FontId::proportional(if is_hovered { 14.0 } else { 12.0 }),
-            if is_hovered {
-                theme::SELECTION
-            } else {
-                theme::LABEL_TEXT
-            },
+            egui::FontId::proportional(font_size),
+            text_color,
         );
     }
 }
