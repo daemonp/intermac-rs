@@ -961,5 +961,13 @@ impl eframe::App for ViewerApp {
         self.show_shortcuts_help(ctx);
         self.show_about(ctx);
         self.show_piece_tooltip(ctx);
+
+        // Only repaint when there's actual interaction, not continuously
+        // This prevents high CPU usage and "not responding" issues when unfocused
+        if ctx.input(|i| {
+            i.pointer.is_moving() || i.pointer.any_down() || i.raw_scroll_delta != egui::Vec2::ZERO
+        }) {
+            ctx.request_repaint();
+        }
     }
 }

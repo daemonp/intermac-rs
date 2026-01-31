@@ -23,6 +23,8 @@ fn main() -> eframe::Result<()> {
             .with_inner_size([1280.0, 800.0])
             .with_min_inner_size([800.0, 600.0])
             .with_title("OTD Viewer"),
+        // Don't block when window is not visible (prevents "not responding" on focus loss)
+        vsync: false,
         ..Default::default()
     };
 
