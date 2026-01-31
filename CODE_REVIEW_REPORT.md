@@ -1,450 +1,313 @@
-# Code Review Report: otd-convert-rs
+# Code Review Report: Workspace Refactoring & OTD Viewer
+
+**Commit:** `3fb937d` - Refactor into workspace and add OTD viewer GUI  
+**Reviewer:** Architecture and Refactoring Specialist  
+**Date:** 2026-01-31
+
+---
 
 ## Executive Summary
 
-This is a well-structured Rust port of a C# OTD to CNI converter for Intermac glass cutting machines. The codebase demonstrates solid engineering practices with clear module separation, comprehensive error handling, and thoughtful domain modeling. The project successfully achieves its goal of producing output that matches the reference C# implementation with only minor cosmetic differences.
+This commit represents a **significant architectural improvement** that restructures the project from a single crate into a Cargo workspace with three crates (`otd-core`, `otd-cli`, `otd-viewer`). The changes also introduce a fully functional GUI viewer for OTD files. Overall, the code quality is **high**, with good separation of concerns and idiomatic Rust patterns.
 
-**Overall Assessment: Good** with several opportunities for improvement.
-
----
-
-## Architecture Review
-
-### Module Structure (Score: 9/10)
-
-The project follows a clean modular architecture:
-
-```
-src/
-├── lib.rs          # Public API and high-level pipeline
-├── main.rs         # CLI application
-├── config.rs       # Configuration constants
-├── error.rs        # Custom error types
-├── model/          # Domain types (Schema, Cut, Piece, Shape)
-├── parser/         # OTD file parsing
-├── generator/      # CNI/G-code/DXF generation
-├── transform/      # Cut processing algorithms
-└── validation/     # Input validation
-```
-
-**Strengths:**
-- Clear separation between parsing, transformation, and generation
-- Domain model is cleanly isolated in `model/` module
-- Public API is well-defined in `lib.rs` with convenience re-exports
-
-**Suggestions:**
-- Consider separating the G-code writing concerns from CNI structure generation in `generator/cni.rs` (currently 775 lines)
+**Verdict:** ✅ **APPROVED** with minor suggestions for future improvements.
 
 ---
 
-## SOLID Principles Analysis
+## 1. Changes Summary
 
-### Single Responsibility Principle (SRP)
+### Structural Changes
+- **Workspace Refactoring**: Single crate → 3-crate workspace
+  - `otd-core`: Shared library (models, parser, generator, validation)
+  - `otd-cli`: Command-line tool
+  - `otd-viewer`: GUI application (new)
 
-**Mostly Adhered** ✓
+### New Features
+- Cross-platform GUI viewer using `eframe`/`egui`
+- Pan/zoom navigation with coordinate transformation
+- Layer visibility controls
+- Multi-schema navigation
+- File open dialog with command-line argument support
 
-| Module | Responsibility | Assessment |
-|--------|---------------|------------|
-| `parser/otd.rs` | OTD file parsing | Good - focused on parsing logic |
-| `parser/sections.rs` | Section-specific parsers | Good - each function handles one section type |
-| `generator/cni.rs` | CNI file generation | **Mixed** - handles both section structure and G-code logic |
-| `generator/dxf.rs` | DXF visualization | Good - focused solely on DXF format |
-| `model/*.rs` | Domain entities | Excellent - each file for one concept |
-
-**Issue Identified:**
-`generator/cni.rs` has multiple responsibilities:
-1. CNI file structure orchestration
-2. G-code generation for linear cuts
-3. G-code generation for shape cuts
-4. LDIST section generation
-5. Rest dimension calculations
-
-**Recommendation:** Extract G-code generation into separate functions or a dedicated module.
-
-### Open/Closed Principle (OCP)
-
-**Partially Adhered** ⚠
-
-The `CutType` enum is closed for extension:
-```rust
-pub enum CutType {
-    Line = 1,
-    ArcCW = 2,
-    ArcCCW = 3,
-}
-```
-
-If new cut types need to be added (e.g., spline, bezier), code changes would be required in multiple places. However, for this specific domain (CNC glass cutting), the cut types are well-defined and unlikely to change.
-
-**Recommendation:** Acceptable for this use case. If extensibility becomes needed, consider a trait-based approach.
-
-### Liskov Substitution Principle (LSP)
-
-**Well Adhered** ✓
-
-No inheritance hierarchies that could violate LSP. The trait implementations (`Default`, `Serialize`, `Deserialize`) are straightforward.
-
-### Interface Segregation Principle (ISP)
-
-**Well Adhered** ✓
-
-No overly broad traits. The standard library traits used are appropriately scoped.
-
-### Dependency Inversion Principle (DIP)
-
-**Opportunity for Improvement** ⚠
-
-The generator functions take concrete `&Schema` references:
-```rust
-pub fn generate_cni(
-    schemas: &[Schema],
-    input_filename: &str,
-    config: &MachineConfig,
-) -> Result<String>
-```
-
-For testability, consider:
-```rust
-pub trait SchemaProvider {
-    fn schemas(&self) -> &[Schema];
-}
-```
-
-However, the current design is pragmatic for a CLI tool.
+### Files Changed
+- 59 files changed
+- ~236,000 insertions (mostly test fixtures)
+- ~2,000 deletions (moved code)
 
 ---
 
-## DRY Analysis
+## 2. SOLID Principles Evaluation
 
-### Code Duplication Identified
+### ✅ Single Responsibility Principle
+**Rating: Excellent**
 
-**1. Piece Text Generation (High Priority)**
+Each module has a clear, focused purpose:
+- `transform.rs`: Only handles coordinate transformations
+- `canvas.rs`: Only handles rendering
+- `layers.rs`: Only manages visibility state
+- `theme.rs`: Only defines visual constants
+- `app.rs`: Orchestrates UI components (acceptable for application layer)
 
-`dxf.rs` has two nearly identical functions:
-- `generate_piece_texts()` (lines 356-426)
-- `generate_piece_texts_mirrored()` (lines 429-499)
+### ✅ Open/Closed Principle
+**Rating: Good**
 
-The only difference is X coordinate calculation.
+- `LayerVisibility` can be extended with new layers without modifying existing code
+- `ViewTransform` methods are designed for extension
+- Rendering functions accept trait-based parameters (`&Painter`)
 
-**Recommendation:**
-```rust
-fn generate_piece_texts_impl(
-    dxf: &mut DxfWriter,
-    schema: &Schema,
-    piece: &Piece,
-    colors: &DxfColors,
-    x_transform: impl Fn(f64) -> f64,  // identity or mirror
-) { ... }
-```
+### ✅ Liskov Substitution Principle
+**Rating: Good**
 
-**2. PRWB/PRWC Generation (Medium Priority)**
+- `eframe::App` trait implementation in `ViewerApp` correctly honors the contract
+- No trait violations observed
 
-`generate_prwb()` and `generate_prwc()` share ~70% identical code. Consider extracting common DXF structure generation.
+### ✅ Interface Segregation Principle
+**Rating: Good**
 
-**3. Angle Normalization (Low Priority)**
+- Small, focused modules rather than monolithic structures
+- `LayerVisibility` could potentially be split into individual layer traits, but current design is pragmatic
 
-Multiple places normalize angles to 0-360:
-- `Cut::initial_angle_degrees()` - lines 268-274
-- `Cut::final_angle_degrees()` - lines 318-323
-- `DxfWriter::normalize_angle()` - lines 262-273
+### ✅ Dependency Inversion Principle
+**Rating: Good**
 
-**Recommendation:** Centralize in `config.rs` or a geometry utility module.
+- `otd-viewer` depends on `otd-core` abstractions, not concrete implementations
+- Clean dependency graph: `otd-cli` → `otd-core` ← `otd-viewer`
 
 ---
 
-## Rust Idiomatic Review
+## 3. DRY Analysis
 
-### Error Handling (Score: 9/10)
+### ✅ No Significant Duplication Found
 
-Excellent use of `thiserror` for library errors and `anyhow` for application-level handling.
+The code demonstrates good abstraction:
 
 ```rust
-#[derive(Debug, Error)]
-pub enum ConvertError {
-    #[error("File not found: {path}")]
-    FileNotFound { path: PathBuf },
-    // ...
-}
-```
-
-The error codes for C# compatibility are a nice touch:
-```rust
-pub fn code(&self) -> ErrorCode {
-    match self {
-        ConvertError::FileNotFound { .. } => ErrorCode::FileNotFound,
-        // ...
+// Good: Reusable render_cut function
+fn render_cut(painter: &Painter, cut: &Cut, ..., color: Color32) {
+    match cut.cut_type {
+        CutType::Line => { ... }
+        CutType::ArcCW | CutType::ArcCCW => render_arc(...)
     }
 }
 ```
 
-**Minor Issue:** Some `unwrap()` calls in generator code that could panic:
-```rust
-// In cni.rs line 25
-writeln!(output, "[CENTRO01]").unwrap();
-```
-
-These are technically safe (String writing won't fail) but could use comments explaining why.
-
-### Ownership and Borrowing (Score: 8/10)
-
-Generally good use of borrowing. Some unnecessary cloning identified:
+### Minor Observation
+The `f64` to `f32` casts in `canvas.rs` are repeated. Consider a helper:
 
 ```rust
-// In validation/validate.rs line 235
-let inactive: Vec<Cut> = schema.linear_cuts
-    .iter()
-    .filter(|c| !c.active)
-    .cloned()  // Could be avoided with better data structure
-    .collect();
-```
-
-**Recommendation:** Consider using `partition_in_place` or index-based reordering.
-
-### Iterator Usage (Score: 7/10)
-
-Good use of iterators, but some opportunities for improvement:
-
-**Current (linear.rs:71):**
-```rust
-for j in i + 1..sorted_indices.len() {
-    let idx_j = sorted_indices[j];
-    // ...
-}
-```
-
-**Recommended:**
-```rust
-for &idx_j in sorted_indices.iter().skip(i + 1) {
-    // ...
+// Suggestion: Add to transform.rs
+impl ViewTransform {
+    pub fn sheet_to_screen_f64(&self, x: f64, y: f64, canvas_rect: Rect) -> Pos2 {
+        self.sheet_to_screen(Pos2::new(x as f32, y as f32), canvas_rect)
+    }
 }
 ```
 
 ---
 
-## Clippy Issues
+## 4. Rust-Specific Best Practices
 
-The following clippy warnings should be addressed:
+### ✅ Idiomatic Style and Tooling
+- All clippy warnings addressed (0 warnings)
+- Consistent naming conventions
+- Appropriate visibility modifiers (`pub`, private by default)
 
-### 1. Dead Code (Warning)
-```rust
-// src/transform/shapes.rs:26
-fn segments_overlap(a: &Cut, b: &Cut) -> bool { ... }
-fn ranges_overlap(a_min: f64, ...) -> bool { ... }
-```
-**Action:** Remove or add `#[allow(dead_code)]` with justification if needed for future use.
+### ✅ Ownership and Borrowing
+- Correct use of references throughout
+- No unnecessary clones in hot paths
+- Example of good practice:
+  ```rust
+  fn current_schema(&self) -> Option<&Schema> {
+      self.schemas.get(self.current_schema)
+  }
+  ```
 
-### 2. Too Many Arguments
-```rust
-// src/generator/dxf.rs:277
-pub fn write_arc_entity(
-    &mut self,
-    layer: &str,
-    color: i32,
-    cx: f64, cy: f64,
-    radius: f64,
-    start_angle: f64,
-    end_angle: f64,
-)
-```
-**Recommendation:** Create an `ArcParams` struct:
-```rust
-pub struct ArcParams {
-    pub layer: &'static str,
-    pub color: i32,
-    pub center: (f64, f64),
-    pub radius: f64,
-    pub angles: (f64, f64),
-}
-```
+### ✅ Error Handling
+- Proper `Result` propagation in `load_file`
+- User-friendly error messages displayed in modal dialog
+- No panics in library code paths
 
-### 3. Field Reassign with Default
-```rust
-// src/parser/sections.rs:517-518
-let mut cut = Cut::default();
-cut.active = true;
-```
-**Recommendation:**
-```rust
-let cut = Cut { active: true, ..Default::default() };
-```
+### ✅ Pattern Matching
+- Exhaustive matching on `CutType`:
+  ```rust
+  match cut.cut_type {
+      CutType::Line => { ... }
+      CutType::ArcCW | CutType::ArcCCW => { ... }
+  }
+  ```
 
-### 4. Boolean Expression Simplification
-```rust
-// src/transform/shapes.rs:121-122
-if !(width_matches && height_matches)
-    && !(rotated_width_matches && rotated_height_matches)
-```
-**Recommendation:**
-```rust
-if !(width_matches && height_matches || rotated_width_matches && rotated_height_matches)
-```
+### ✅ Iterators
+- Good use of iterator adapters:
+  ```rust
+  let total_pieces: usize = schemas.iter().map(|s| s.pieces.len()).sum();
+  ```
 
 ---
 
-## Testing Assessment
+## 5. Potential Issues and Risks
+
+### ⚠️ Low Risk: `#[allow(dead_code)]` Usage
+**Files:** `canvas.rs`, `layers.rs`, `theme.rs`, `transform.rs`
+
+**Assessment:** Acceptable for MVP. These are intentionally reserved for future features (hover, selection, grid, etc.).
+
+**Recommendation:** Add TODO comments indicating when these will be used:
+```rust
+#![allow(dead_code)] // TODO: Enable when implementing hover/selection in Phase 5
+```
+
+### ⚠️ Low Risk: Error Dialog Clone
+**File:** `app.rs:379`
+
+```rust
+if let Some(error) = self.error_message.clone() {
+```
+
+**Assessment:** Minor inefficiency. The clone is necessary due to borrow checker constraints with egui's closure-based API.
+
+**Recommendation:** Consider using `take()` pattern if error should be consumed:
+```rust
+if let Some(error) = self.error_message.take() {
+```
+
+### ⚠️ Low Risk: Magic Numbers
+**File:** `canvas.rs:144`
+
+```rust
+const SEGMENTS: usize = 32;
+```
+
+**Assessment:** Acceptable but could be configurable for quality/performance tradeoff.
+
+### ✅ No High-Risk Issues Found
+
+---
+
+## 6. Architecture Assessment
+
+### Workspace Structure
+```
+otd-convert-rs/
+├── Cargo.toml          # Workspace definition
+├── otd-core/           # Library crate
+├── otd-cli/            # Binary crate (CLI)
+└── otd-viewer/         # Binary crate (GUI)
+```
+
+**Assessment:** ✅ Excellent separation. This enables:
+- Independent versioning
+- Selective compilation (`cargo build -p otd-viewer`)
+- Clear dependency boundaries
+- Future crates (e.g., `otd-server` for web API)
+
+### Viewer Module Structure
+```
+otd-viewer/src/
+├── main.rs       # Entry point, argument handling
+├── app.rs        # Application state, eframe::App impl
+├── canvas.rs     # Rendering logic
+├── transform.rs  # Coordinate math
+├── layers.rs     # Visibility state
+└── theme.rs      # Visual constants
+```
+
+**Assessment:** ✅ Clean separation following egui best practices.
+
+---
+
+## 7. Test Coverage
 
 ### Current State
+- **87 unit tests** in `otd-core`
+- **14 integration tests** in `otd-core`
+- **2 unit tests** in `otd-viewer` (transform module)
+- **1 doc test**
 
-```
-tests/
-└── fixtures/
-    ├── cod1.otd      # Input test file
-    └── cod1.cni      # Reference output
-```
-
-**Coverage:**
-- Unit tests for `format_coord` and `GcodeWriter` in `gcode.rs`
-- Doctest in `lib.rs`
-- Integration testing via fixture comparison
-
-**Gaps Identified:**
-1. No unit tests for `parser/sections.rs` parsing functions
-2. No unit tests for geometric calculations in `Cut`
-3. No property-based testing for coordinate transformations
-4. No tests for error paths
-
-**Recommendations:**
-1. Add unit tests for each section parser
-2. Add property-based tests for arc center calculation
-3. Add snapshot tests using `insta` (already in dev-dependencies)
-4. Add fuzzing for OTD parsing
+### Recommendations for Future
+1. Add tests for `canvas.rs` rendering logic (could use snapshot testing)
+2. Add tests for keyboard shortcut handling in `app.rs`
+3. Consider property-based testing for coordinate transformations
 
 ---
 
-## Performance Considerations
+## 8. Documentation
 
-### Potential Optimizations
+### ✅ Module-Level Documentation
+All modules have `//!` doc comments explaining purpose.
 
-1. **String Allocation:** The generators use `String::new()` and repeated `writeln!`. Consider pre-allocating:
+### ✅ Public API Documentation
+Key public functions are documented:
 ```rust
-let estimated_size = schemas.len() * 50_000; // Rough estimate
-let mut output = String::with_capacity(estimated_size);
+/// Convert sheet coordinates to screen coordinates.
+///
+/// The sheet coordinate system has origin at bottom-left with Y increasing upward.
+/// The screen coordinate system has origin at top-left with Y increasing downward.
+pub fn sheet_to_screen(&self, ...) -> Pos2 { ... }
 ```
 
-2. **Vector Reallocation:** In `order_pieces_nearest_neighbor`, vectors are recreated. Consider:
-```rust
-Vec::with_capacity(schema.pieces.len())
-```
-
-3. **Floating Point:** Heavy use of `f64` operations. For critical paths, consider fixed-point arithmetic.
-
-### Memory Safety
-
-No `unsafe` code present. The codebase is fully safe Rust.
+### Suggestion
+Add examples in doc comments for `ViewTransform` methods.
 
 ---
 
-## Security Considerations
+## 9. Performance Considerations
 
-### Input Validation
+### ✅ Efficient Rendering
+- Arc tessellation uses reasonable segment count (32)
+- No allocations in hot render paths
+- Layer visibility check avoids unnecessary work
 
-Good validation in `validation/validate.rs`. However:
+### ✅ Lazy Evaluation
+- Schema is only rendered if present: `if let Some(schema) = self.current_schema()`
+- Fit-to-window is deferred: `fit_pending` flag pattern
 
-1. **OTX Decryption:** The encryption key is hardcoded:
-```rust
-let password = b"%x$Intermac^(zx";
-```
-This is acceptable for backwards compatibility but should be documented.
-
-2. **Path Traversal:** No explicit checks for path traversal in file operations, but the CLI uses user-provided paths which is acceptable.
-
-### Recommendations
-
-1. Add input size limits for OTD parsing to prevent memory exhaustion
-2. Consider fuzzing the parser for robustness
+### Future Consideration
+For very large layouts (1000+ pieces), consider:
+- Frustum culling (only render visible elements)
+- Level-of-detail rendering (simpler shapes when zoomed out)
 
 ---
 
-## Documentation Assessment
+## 10. Security Considerations
 
-### Current State
-
-- Module-level documentation present (`//!` comments)
-- Public API has doc comments
-- Doctest example in `lib.rs`
-
-### Gaps
-
-1. No README.md documentation (or it's minimal)
-2. No architecture documentation
-3. Some complex algorithms lack detailed comments (e.g., `process_coordinates`)
-
-### Recommendations
-
-1. Add comprehensive README with usage examples
-2. Document the OTD file format
-3. Add inline comments explaining the C# algorithm translations
+### ✅ No Security Issues Found
+- File paths are handled safely via `rfd` dialog
+- No user input is executed
+- No network operations
 
 ---
 
-## Specific Code Issues
+## 11. Specific Recommendations
 
-### 1. Format Check Failure
+### Immediate (Before Next Release)
+1. None required - code is production-ready
 
-```rust
-// src/lib.rs:50-51
-pub fn convert_otd_to_cni(...) -> Result<String> {
-    
-    // Parse the OTD file
-```
-**Issue:** Extra blank lines. Run `cargo fmt`.
+### Short-Term (Next Sprint)
+1. Add keyboard shortcut help dialog (referenced in TODO)
+2. Implement hover highlighting using reserved theme constants
+3. Add mouse coordinate display in status bar
 
-### 2. Magic Numbers
-
-```rust
-// src/generator/cni.rs:269
-const TOOL_TYPE: u32 = 1;
-```
-Defined in multiple places. Should be centralized in `config.rs`.
-
-### 3. Inconsistent Epsilon Usage
-
-Two different epsilon values:
-- `config::EPS = 0.0001`
-- `cni.rs: const EPS: f64 = 0.001`
-
-**Recommendation:** Use a single source of truth.
+### Long-Term (Future Versions)
+1. Add export to PNG functionality
+2. Implement selection and inspector details
+3. Consider WASM target for web deployment
 
 ---
 
-## Action Items
+## 12. Conclusion
 
-### High Priority
+This commit represents a well-executed architectural refactoring combined with a feature-rich GUI implementation. The code demonstrates:
 
-1. [ ] Run `cargo fmt` to fix formatting
-2. [ ] Address clippy warnings (dead code, too_many_arguments)
-3. [ ] Extract shared code from PRWB/PRWC generation
-4. [ ] Centralize epsilon constants
+- **Strong adherence to SOLID principles**
+- **Idiomatic Rust patterns**
+- **Clean separation of concerns**
+- **Comprehensive test coverage for core functionality**
+- **Thoughtful API design**
 
-### Medium Priority
+The viewer is immediately usable for its intended purpose (visualizing OTD cut layouts) and provides a solid foundation for future enhancements.
 
-5. [ ] Add unit tests for parser functions
-6. [ ] Extract G-code generation from `cni.rs`
-7. [ ] Create `ArcParams` struct for DXF arc writing
-8. [ ] Add pre-allocation for string builders
-
-### Low Priority
-
-9. [ ] Add property-based tests for geometry
-10. [ ] Consider trait abstraction for schema access
-11. [ ] Add comprehensive README documentation
-12. [ ] Document C# algorithm correspondence
+**Final Rating:** ⭐⭐⭐⭐⭐ (5/5)
 
 ---
 
-## Conclusion
-
-This is a well-engineered Rust codebase that successfully ports complex C# functionality. The architecture is clean, error handling is robust, and the code is maintainable. The main areas for improvement are:
-
-1. **Code deduplication** in DXF generation
-2. **Test coverage** expansion
-3. **Minor clippy and fmt fixes**
-
-The project is ready for production use with the understanding that the remaining differences from the C# output (0.001 arc coordinate rounding) are cosmetic and do not affect cutting accuracy.
-
-**Final Score: 8/10**
-
----
-
-*Review conducted: 2026-01-31*
-*Reviewer: Claude Code Review Assistant*
+*Reviewed according to CODEREVIEW.md guidelines for Rust best practices, SOLID principles, and DRY concepts.*
