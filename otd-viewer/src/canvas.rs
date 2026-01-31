@@ -24,6 +24,11 @@ pub fn render_schema(
         render_sheet(painter, schema, transform, canvas_rect);
     }
 
+    // Render grid (on top of sheet, below everything else)
+    if layers.grid {
+        render_grid(painter, schema, transform, canvas_rect);
+    }
+
     if layers.trim && (schema.trim_left > 0.0 || schema.trim_bottom > 0.0) {
         render_trim_zone(painter, schema, transform, canvas_rect);
     }
@@ -61,6 +66,50 @@ pub fn render_schema(
             hovered_piece,
             selected_piece,
         );
+    }
+}
+
+/// Render coordinate grid overlay.
+fn render_grid(painter: &Painter, schema: &Schema, transform: &ViewTransform, canvas_rect: Rect) {
+    // Determine grid spacing based on zoom level
+    // At low zoom, use larger grid; at high zoom, use smaller grid
+    let base_spacing = 10.0; // 10 inches base
+    let zoom = transform.zoom as f64;
+
+    // Adjust spacing so grid lines are roughly 50-100 pixels apart
+    let target_screen_spacing = 80.0;
+    let mut spacing = base_spacing;
+
+    // Scale up if lines would be too close
+    while spacing * zoom < target_screen_spacing / 2.0 && spacing < 100.0 {
+        spacing *= 2.0;
+    }
+    // Scale down if lines would be too far apart
+    while spacing * zoom > target_screen_spacing * 2.0 && spacing > 1.0 {
+        spacing /= 2.0;
+    }
+
+    let minor_stroke = Stroke::new(1.0, theme::GRID_LINES);
+    let major_stroke = Stroke::new(1.5, theme::GRID_MAJOR);
+
+    // Draw vertical lines
+    let mut x = 0.0;
+    while x <= schema.width {
+        let is_major = (x / spacing).round() % 5.0 == 0.0 || x == 0.0;
+        let p1 = transform.sheet_to_screen(Pos2::new(x as f32, 0.0), canvas_rect);
+        let p2 = transform.sheet_to_screen(Pos2::new(x as f32, schema.height as f32), canvas_rect);
+        painter.line_segment([p1, p2], if is_major { major_stroke } else { minor_stroke });
+        x += spacing;
+    }
+
+    // Draw horizontal lines
+    let mut y = 0.0;
+    while y <= schema.height {
+        let is_major = (y / spacing).round() % 5.0 == 0.0 || y == 0.0;
+        let p1 = transform.sheet_to_screen(Pos2::new(0.0, y as f32), canvas_rect);
+        let p2 = transform.sheet_to_screen(Pos2::new(schema.width as f32, y as f32), canvas_rect);
+        painter.line_segment([p1, p2], if is_major { major_stroke } else { minor_stroke });
+        y += spacing;
     }
 }
 
