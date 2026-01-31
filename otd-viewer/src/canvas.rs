@@ -16,6 +16,7 @@ pub fn render_schema(
     transform: &ViewTransform,
     canvas_rect: Rect,
     layers: &LayerVisibility,
+    hovered_piece: Option<usize>,
 ) {
     // Render layers from bottom to top
     if layers.sheet {
@@ -26,12 +27,17 @@ pub fn render_schema(
         render_trim_zone(painter, schema, transform, canvas_rect);
     }
 
+    // Render waste regions (areas of the sheet not covered by pieces)
+    if layers.waste {
+        render_waste_regions(painter, schema, transform, canvas_rect);
+    }
+
     if layers.linear_cuts {
         render_linear_cuts(painter, schema, transform, canvas_rect);
     }
 
     if layers.pieces {
-        render_pieces(painter, schema, transform, canvas_rect);
+        render_pieces(painter, schema, transform, canvas_rect, hovered_piece);
     }
 
     if layers.shapes {
@@ -39,7 +45,7 @@ pub fn render_schema(
     }
 
     if layers.labels {
-        render_labels(painter, schema, transform, canvas_rect);
+        render_labels(painter, schema, transform, canvas_rect, hovered_piece);
     }
 }
 
@@ -91,6 +97,110 @@ fn render_trim_zone(
         );
         let rect = Rect::from_two_pos(min, max);
         painter.rect_filled(rect, 0.0, theme::TRIM_ZONE);
+    }
+}
+
+/// Render waste regions (areas not covered by pieces).
+/// This uses a simple approach: draw the whole sheet as waste, then "punch out" the pieces.
+/// We approximate this by drawing waste-colored rectangles in gaps between pieces.
+fn render_waste_regions(
+    painter: &Painter,
+    schema: &Schema,
+    transform: &ViewTransform,
+    canvas_rect: Rect,
+) {
+    // Skip if there are no pieces (entire sheet would be waste)
+    if schema.pieces.is_empty() {
+        return;
+    }
+
+    // Create a simple grid-based approach to find waste cells
+    // We'll use the linear cuts to define the grid cells, then check which cells have no pieces
+
+    // Collect all unique X and Y coordinates from linear cuts and sheet edges
+    let mut x_coords: Vec<f64> = vec![schema.trim_left, schema.width];
+    let mut y_coords: Vec<f64> = vec![schema.trim_bottom, schema.height];
+
+    for cut in &schema.linear_cuts {
+        if !cut.active {
+            continue;
+        }
+        // Vertical cut
+        if (cut.xi - cut.xf).abs() < 0.001 {
+            x_coords.push(cut.xi);
+        }
+        // Horizontal cut
+        if (cut.yi - cut.yf).abs() < 0.001 {
+            y_coords.push(cut.yi);
+        }
+    }
+
+    // Sort and deduplicate
+    x_coords.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    y_coords.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    x_coords.dedup_by(|a, b| (*a - *b).abs() < 0.01);
+    y_coords.dedup_by(|a, b| (*a - *b).abs() < 0.01);
+
+    // For each grid cell, check if any piece covers it
+    for x_idx in 0..x_coords.len().saturating_sub(1) {
+        for y_idx in 0..y_coords.len().saturating_sub(1) {
+            let cell_x1 = x_coords[x_idx];
+            let cell_y1 = y_coords[y_idx];
+            let cell_x2 = x_coords[x_idx + 1];
+            let cell_y2 = y_coords[y_idx + 1];
+
+            let cell_center_x = (cell_x1 + cell_x2) / 2.0;
+            let cell_center_y = (cell_y1 + cell_y2) / 2.0;
+
+            // Check if any piece contains this cell's center
+            let is_covered = schema.pieces.iter().any(|piece| {
+                cell_center_x >= piece.x_origin
+                    && cell_center_x <= piece.x_origin + piece.width
+                    && cell_center_y >= piece.y_origin
+                    && cell_center_y <= piece.y_origin + piece.height
+            });
+
+            if !is_covered {
+                // This cell is waste - draw it
+                let min = transform
+                    .sheet_to_screen(Pos2::new(cell_x1 as f32, cell_y1 as f32), canvas_rect);
+                let max = transform
+                    .sheet_to_screen(Pos2::new(cell_x2 as f32, cell_y2 as f32), canvas_rect);
+                let rect = Rect::from_two_pos(min, max);
+
+                // Fill with waste color
+                painter.rect_filled(rect, 0.0, theme::WASTE_FILL);
+
+                // Draw diagonal hatch lines for visual distinction
+                draw_hatch_pattern(painter, rect, theme::WASTE_HATCH);
+            }
+        }
+    }
+}
+
+/// Draw diagonal hatch lines in a rectangle.
+fn draw_hatch_pattern(painter: &Painter, rect: Rect, color: egui::Color32) {
+    let spacing = 8.0;
+    let stroke = Stroke::new(1.0, color);
+
+    let width = rect.width();
+    let height = rect.height();
+    let max_dim = width + height;
+
+    // Draw lines from bottom-left to top-right
+    let mut offset = 0.0;
+    while offset < max_dim {
+        // Line goes from (x1, y1) to (x2, y2)
+        let x1 = rect.min.x + (offset - height).max(0.0);
+        let y1 = rect.max.y - (offset).min(height);
+        let x2 = rect.min.x + (offset).min(width);
+        let y2 = rect.max.y - (offset - width).max(0.0);
+
+        if x1 < rect.max.x && x2 > rect.min.x && y1 > rect.min.y && y2 < rect.max.y {
+            painter.line_segment([Pos2::new(x1, y1), Pos2::new(x2, y2)], stroke);
+        }
+
+        offset += spacing;
     }
 }
 
@@ -178,14 +288,27 @@ fn render_arc(
 }
 
 /// Render all pieces.
-fn render_pieces(painter: &Painter, schema: &Schema, transform: &ViewTransform, canvas_rect: Rect) {
-    for piece in &schema.pieces {
-        render_piece(painter, piece, transform, canvas_rect);
+fn render_pieces(
+    painter: &Painter,
+    schema: &Schema,
+    transform: &ViewTransform,
+    canvas_rect: Rect,
+    hovered_piece: Option<usize>,
+) {
+    for (i, piece) in schema.pieces.iter().enumerate() {
+        let is_hovered = hovered_piece == Some(i);
+        render_piece(painter, piece, transform, canvas_rect, is_hovered);
     }
 }
 
 /// Render a single piece rectangle.
-fn render_piece(painter: &Painter, piece: &Piece, transform: &ViewTransform, canvas_rect: Rect) {
+fn render_piece(
+    painter: &Painter,
+    piece: &Piece,
+    transform: &ViewTransform,
+    canvas_rect: Rect,
+    is_hovered: bool,
+) {
     let min = transform.sheet_to_screen(
         Pos2::new(piece.x_origin as f32, piece.y_origin as f32),
         canvas_rect,
@@ -200,15 +323,26 @@ fn render_piece(painter: &Painter, piece: &Piece, transform: &ViewTransform, can
 
     let rect = Rect::from_two_pos(min, max);
 
+    // Choose colors based on hover state
+    let (fill_color, border_color, stroke_width) = if is_hovered {
+        (
+            theme::PIECE_HOVER_FILL,
+            theme::PIECE_HOVER_BORDER,
+            theme::PIECE_HOVER_STROKE_WIDTH,
+        )
+    } else {
+        (
+            theme::PIECE_FILL,
+            theme::PIECE_BORDER,
+            theme::PIECE_STROKE_WIDTH,
+        )
+    };
+
     // Fill
-    painter.rect_filled(rect, 0.0, theme::PIECE_FILL);
+    painter.rect_filled(rect, 0.0, fill_color);
 
     // Border
-    painter.rect_stroke(
-        rect,
-        0.0,
-        Stroke::new(theme::PIECE_STROKE_WIDTH, theme::PIECE_BORDER),
-    );
+    painter.rect_stroke(rect, 0.0, Stroke::new(stroke_width, border_color));
 }
 
 /// Render all shapes (for pieces that have custom contours).
@@ -268,7 +402,13 @@ fn render_shape(
 }
 
 /// Render piece labels.
-fn render_labels(painter: &Painter, schema: &Schema, transform: &ViewTransform, canvas_rect: Rect) {
+fn render_labels(
+    painter: &Painter,
+    schema: &Schema,
+    transform: &ViewTransform,
+    canvas_rect: Rect,
+    hovered_piece: Option<usize>,
+) {
     for (i, piece) in schema.pieces.iter().enumerate() {
         let center = transform.sheet_to_screen(
             Pos2::new(
@@ -278,13 +418,29 @@ fn render_labels(painter: &Painter, schema: &Schema, transform: &ViewTransform, 
             canvas_rect,
         );
 
+        let is_hovered = hovered_piece == Some(i);
         let label = format!("#{}", i + 1);
+
+        // Draw shadow for better readability
+        painter.text(
+            center + egui::Vec2::new(1.0, 1.0),
+            egui::Align2::CENTER_CENTER,
+            &label,
+            egui::FontId::proportional(if is_hovered { 14.0 } else { 12.0 }),
+            theme::LABEL_SHADOW,
+        );
+
+        // Draw label
         painter.text(
             center,
             egui::Align2::CENTER_CENTER,
             label,
-            egui::FontId::proportional(12.0),
-            theme::LABEL_TEXT,
+            egui::FontId::proportional(if is_hovered { 14.0 } else { 12.0 }),
+            if is_hovered {
+                theme::SELECTION
+            } else {
+                theme::LABEL_TEXT
+            },
         );
     }
 }

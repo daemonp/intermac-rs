@@ -34,6 +34,12 @@ pub struct ViewerApp {
 
     /// Flag to trigger fit-to-window on next frame
     fit_pending: bool,
+
+    /// Current mouse position in sheet coordinates
+    mouse_sheet_pos: Option<egui::Pos2>,
+
+    /// Index of piece currently being hovered
+    hovered_piece: Option<usize>,
 }
 
 impl ViewerApp {
@@ -49,6 +55,8 @@ impl ViewerApp {
             status_message: "No file loaded. Use File > Open or Ctrl+O".to_string(),
             error_message: None,
             fit_pending: false,
+            mouse_sheet_pos: None,
+            hovered_piece: None,
         };
 
         // Load initial file if provided
@@ -209,12 +217,13 @@ impl ViewerApp {
 
                 // Layer controls
                 ui.collapsing("Layers", |ui| {
-                    ui.checkbox(&mut self.layers.sheet, "Sheet");
+                    ui.checkbox(&mut self.layers.sheet, "Sheet (1)");
                     ui.checkbox(&mut self.layers.trim, "Trim Zone");
-                    ui.checkbox(&mut self.layers.linear_cuts, "Linear Cuts");
-                    ui.checkbox(&mut self.layers.pieces, "Pieces");
-                    ui.checkbox(&mut self.layers.shapes, "Shapes");
-                    ui.checkbox(&mut self.layers.labels, "Labels");
+                    ui.checkbox(&mut self.layers.linear_cuts, "Linear Cuts (2)");
+                    ui.checkbox(&mut self.layers.pieces, "Pieces (3)");
+                    ui.checkbox(&mut self.layers.shapes, "Shapes (4)");
+                    ui.checkbox(&mut self.layers.labels, "Labels (5)");
+                    ui.checkbox(&mut self.layers.waste, "Waste Regions (6)");
                 });
 
                 ui.separator();
@@ -225,7 +234,7 @@ impl ViewerApp {
     }
 
     /// Render the status bar.
-    fn render_status_bar(&self, ctx: &Context) {
+    fn render_status_bar(&mut self, ctx: &Context) {
         TopBottomPanel::bottom("status_bar").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.label(&self.status_message);
@@ -233,13 +242,49 @@ impl ViewerApp {
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     ui.label(self.transform.zoom_percent());
 
+                    // Show mouse coordinates if we have a schema
+                    if self.current_schema().is_some() {
+                        if let Some(pos) = &self.mouse_sheet_pos {
+                            ui.separator();
+                            ui.label(format!("({:.2}, {:.2})", pos.x, pos.y));
+                        }
+                    }
+
+                    // Schema navigation
                     if self.schemas.len() > 1 {
                         ui.separator();
+
+                        // Next button (drawn first due to right-to-left layout)
+                        let next_enabled = self.current_schema < self.schemas.len() - 1;
+                        if ui
+                            .add_enabled(next_enabled, egui::Button::new("▶"))
+                            .on_hover_text("Next pattern (Page Down)")
+                            .clicked()
+                        {
+                            self.current_schema += 1;
+                            self.fit_pending = true;
+                        }
+
+                        // Schema indicator
                         ui.label(format!(
-                            "Schema {}/{}",
+                            "{} / {}",
                             self.current_schema + 1,
                             self.schemas.len()
                         ));
+
+                        // Previous button
+                        let prev_enabled = self.current_schema > 0;
+                        if ui
+                            .add_enabled(prev_enabled, egui::Button::new("◀"))
+                            .on_hover_text("Previous pattern (Page Up)")
+                            .clicked()
+                        {
+                            self.current_schema -= 1;
+                            self.fit_pending = true;
+                        }
+
+                        ui.separator();
+                        ui.label("Pattern:");
                     }
                 });
             });
@@ -287,6 +332,28 @@ impl ViewerApp {
                     }
                 }
 
+                // Track mouse position in sheet coordinates
+                self.mouse_sheet_pos = response
+                    .hover_pos()
+                    .map(|screen_pos| self.transform.screen_to_sheet(screen_pos, canvas_rect));
+
+                // Detect hovered piece
+                self.hovered_piece = None;
+                if let (Some(sheet_pos), Some(schema)) =
+                    (self.mouse_sheet_pos, self.current_schema())
+                {
+                    for (i, piece) in schema.pieces.iter().enumerate() {
+                        if sheet_pos.x >= piece.x_origin as f32
+                            && sheet_pos.x <= (piece.x_origin + piece.width) as f32
+                            && sheet_pos.y >= piece.y_origin as f32
+                            && sheet_pos.y <= (piece.y_origin + piece.height) as f32
+                        {
+                            self.hovered_piece = Some(i);
+                            break;
+                        }
+                    }
+                }
+
                 // Render schema if loaded
                 if let Some(schema) = self.current_schema() {
                     canvas::render_schema(
@@ -295,6 +362,7 @@ impl ViewerApp {
                         &self.transform,
                         canvas_rect,
                         &self.layers,
+                        self.hovered_piece,
                     );
                 } else {
                     // Show placeholder text
@@ -370,6 +438,9 @@ impl ViewerApp {
             }
             if i.key_pressed(Key::Num5) {
                 self.layers.labels = !self.layers.labels;
+            }
+            if i.key_pressed(Key::Num6) {
+                self.layers.waste = !self.layers.waste;
             }
         });
     }
