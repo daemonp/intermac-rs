@@ -1,0 +1,377 @@
+[Header]
+AWCutVersion=1.01.00
+OptimizationRun=1
+Dimension=inch
+Date=2024/07/30, 14:07:57
+
+[Signature]
+Creator=XCAWCUT Rel. 1.40, (c) 1995-2011 Albat + Wirsam
+
+[Pattern]
+GlassID=Etched 3
+GlassDescription=3mm 1/8" Satin Etch
+GlassThickness=0.125984
+Width=129.500000
+Height=95.500000
+TrimLeft=0.500000
+TrimBottom=0.500000
+X=129.000000
+  Y=38.531250
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+  Y=38.531250
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=2 Info=2
+    Z=8.000000 Shape=2 Info=2
+    Z=8.000000 Shape=2 Info=2
+    Z=8.000000 Shape=2 Info=2
+    Z=8.000000 Shape=2 Info=2
+    Z=8.000000 Shape=2 Info=2
+  Y=8.000000
+    Z=32.500000 Shape=3 Info=3
+    Z=32.500000 Shape=3 Info=3
+    Z=32.500000 Shape=3 Info=3
+    Z=26.531250 Shape=4 Info=4
+  Y=8.000000
+    Z=32.500000 Shape=3 Info=3
+    Z=32.500000 Shape=3 Info=3
+    Z=32.500000 Shape=3 Info=3
+    Z=26.531250 Shape=4 Info=4
+
+[Shape]
+Id=1
+Description=Form99 (Rotated)
+
+
+[Shape]
+Id=2
+Description=Form99 (Rotated)
+
+
+[Shape]
+Id=3
+Description=Form99
+
+
+[Shape]
+Id=4
+Description=Form99
+
+
+[Info]
+Id=1
+OrderNo=644931
+PosNo=0
+Customer=KIMBALL INTERNATIONA 30-Jul
+Commission=99
+SecondGlassReference=1885 1/8" SATIN
+RackNo=1
+SheetWidth=38.531250
+SheetHeight=8.000000
+SheetCode=1
+
+[Info]
+Id=2
+OrderNo=662976
+PosNo=0
+Customer=KIMBALL INTERNATIONA 30-Jul
+Commission=99
+SecondGlassReference=1885 1/8" SATIN
+RackNo=5
+SheetWidth=38.531250
+SheetHeight=8.000000
+SheetCode=5
+
+[Info]
+Id=3
+OrderNo=648521
+PosNo=0
+Customer=KIMBALL INTERNATIONA 30-Jul
+Commission=99
+SecondGlassReference=1885 1/8" SATIN
+RackNo=2
+SheetWidth=32.500000
+SheetHeight=8.000000
+SheetCode=2
+
+[Info]
+Id=4
+OrderNo=662964
+PosNo=0
+Customer=KIMBALL INTERNATIONA 30-Jul
+Commission=99
+SecondGlassReference=1885 1/8" SATIN
+RackNo=3
+SheetWidth=26.531250
+SheetHeight=8.000000
+SheetCode=3
+
+[Pattern]
+GlassID=Etched 3
+GlassDescription=3mm 1/8" Satin Etch
+GlassThickness=0.125984
+Width=129.500000
+Height=95.500000
+TrimLeft=0.500000
+TrimBottom=0.500000
+X=129.000000
+  Y=32.500000
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+  Y=32.500000
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+  Y=26.531250
+    Z=32.500000
+      W=8.000000 Shape=2 Info=1
+      W=8.000000 Shape=2 Info=1
+      W=8.000000 Shape=2 Info=1
+    Z=38.531250
+      W=8.000000 Shape=3 Info=2
+      W=8.000000 Shape=3 Info=2
+      W=8.000000 Shape=3 Info=2
+    Z=8.000000 Shape=4 Info=3
+    Z=8.000000 Shape=4 Info=3
+    Z=8.000000 Shape=4 Info=3
+    Z=8.000000 Shape=4 Info=3
+    Z=8.000000 Shape=4 Info=3
+    Z=8.000000 Shape=4 Info=3
+    Z=8.000000 Shape=4 Info=3
+
+[Shape]
+Id=1
+Description=Form99 (Rotated)
+
+
+[Shape]
+Id=2
+Description=Form99
+
+
+[Shape]
+Id=3
+Description=Form99
+
+
+[Shape]
+Id=4
+Description=Form99 (Rotated)
+
+
+[Info]
+Id=1
+OrderNo=648521
+PosNo=0
+Customer=KIMBALL INTERNATIONA 30-Jul
+Commission=99
+SecondGlassReference=1885 1/8" SATIN
+RackNo=2
+SheetWidth=32.500000
+SheetHeight=8.000000
+SheetCode=2
+
+[Info]
+Id=2
+OrderNo=662976
+PosNo=0
+Customer=KIMBALL INTERNATIONA 30-Jul
+Commission=99
+SecondGlassReference=1885 1/8" SATIN
+RackNo=5
+SheetWidth=38.531250
+SheetHeight=8.000000
+SheetCode=5
+
+[Info]
+Id=3
+OrderNo=662964
+PosNo=0
+Customer=KIMBALL INTERNATIONA 30-Jul
+Commission=99
+SecondGlassReference=1885 1/8" SATIN
+RackNo=3
+SheetWidth=26.531250
+SheetHeight=8.000000
+SheetCode=3
+
+[Pattern]
+GlassID=Etched 3
+GlassDescription=3mm 1/8" Satin Etch
+GlassThickness=0.125984
+Width=129.500000
+Height=95.500000
+TrimLeft=0.500000
+TrimBottom=0.500000
+X=129.000000
+  Y=32.500000
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+  Y=32.500000
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=1 Info=1
+    Z=8.000000 Shape=2 Info=2
+    Z=8.000000 Shape=2 Info=2
+    Z=8.000000 Shape=2 Info=2
+    Z=8.000000 Shape=2 Info=2
+    Z=8.000000 Shape=2 Info=2
+  Y=8.000000
+    Z=26.531250 Shape=3 Info=3
+    Z=26.531250 Shape=3 Info=3
+    Z=32.500000 Shape=4 Info=2
+    Z=38.531250 Shape=5 Info=4
+  Y=8.000000
+    Z=32.500000 Shape=4 Info=2
+    Z=32.500000 Shape=4 Info=2
+    Z=38.531250 Shape=5 Info=4
+  Y=8.000000
+    Z=32.500000 Shape=4 Info=2
+    Z=32.500000 Shape=4 Info=2
+    Z=32.500000 Shape=4 Info=2
+
+[Shape]
+Id=1
+Description=Form99 (Rotated)
+
+
+[Shape]
+Id=2
+Description=Form99 (Rotated)
+
+
+[Shape]
+Id=3
+Description=Form99
+
+
+[Shape]
+Id=4
+Description=Form99
+
+
+[Shape]
+Id=5
+Description=Form99
+
+
+[Info]
+Id=1
+OrderNo=648521
+PosNo=0
+Customer=KIMBALL INTERNATIONA 30-Jul
+Commission=99
+SecondGlassReference=1885 1/8" SATIN
+RackNo=2
+SheetWidth=32.500000
+SheetHeight=8.000000
+SheetCode=2
+
+[Info]
+Id=2
+OrderNo=662975
+PosNo=0
+Customer=KIMBALL INTERNATIONA 30-Jul
+Commission=99
+SecondGlassReference=1885 1/8" SATIN
+RackNo=4
+SheetWidth=32.500000
+SheetHeight=8.000000
+SheetCode=4
+
+[Info]
+Id=3
+OrderNo=662964
+PosNo=0
+Customer=KIMBALL INTERNATIONA 30-Jul
+Commission=99
+SecondGlassReference=1885 1/8" SATIN
+RackNo=3
+SheetWidth=26.531250
+SheetHeight=8.000000
+SheetCode=3
+
+[Info]
+Id=4
+OrderNo=662976
+PosNo=0
+Customer=KIMBALL INTERNATIONA 30-Jul
+Commission=99
+SecondGlassReference=1885 1/8" SATIN
+RackNo=5
+SheetWidth=38.531250
+SheetHeight=8.000000
+SheetCode=5
+

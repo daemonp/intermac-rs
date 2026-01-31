@@ -1,0 +1,27 @@
+[package]
+name = "otd-cli"
+version = "0.1.0"
+edition = "2021"
+authors = ["Intermac"]
+description = "CLI tool to convert OTD files to CNI format"
+license = "MIT"
+
+[[bin]]
+name = "otd-convert"
+path = "src/main.rs"
+
+[dependencies]
+otd-core = { path = "../otd-core" }
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# Error handling
+anyhow = "1"
+
+# Serialization (for debug output)
+serde_json = "1"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }

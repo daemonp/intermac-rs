@@ -1,0 +1,103 @@
+[Header]
+AWCutVersion=1.01.00
+OptimizationRun=4
+Dimension=inch
+Date=2025/09/05, 14:45:07
+
+[Signature]
+Creator=XCAWCUT Rel. 1.40, (c) 1995-2011 Albat + Wirsam
+
+[Pattern]
+GlassID=197
+GlassDescription=5mm 3/16"
+GlassThickness=0.196850
+Width=129.500000
+Height=95.500000
+TrimLeft=0.500000
+TrimBottom=0.500000
+X=129.000000
+  Y=12.000000
+    Z=12.000000 Info=1
+    Z=12.000000 Info=1
+    Z=12.000000 Info=1
+    Z=12.000000 Info=1
+    Z=12.000000 Info=1
+    Z=12.000000 Info=1
+    Z=12.000000 Info=1
+    Z=12.000000 Info=1
+    Z=12.000000 Info=1
+    Z=12.000000 Info=1
+  Y=12.000000
+    Z=12.000000 Info=2
+    Z=12.000000 Info=2
+    Z=12.000000 Info=2
+    Z=12.000000 Info=2
+    Z=12.000000 Info=2
+    Z=12.000000 Info=2
+    Z=12.000000 Info=2
+    Z=12.000000 Info=2
+    Z=12.000000 Info=2
+    Z=12.000000 Info=2
+  Y=12.000000
+    Z=12.000000 Info=3
+    Z=12.000000 Info=3
+    Z=12.000000 Info=3
+    Z=12.000000 Info=3
+    Z=12.000000 Info=3
+    Z=12.000000 Info=3
+    Z=12.000000 Info=3
+    Z=12.000000 Info=3
+    Z=12.000000 Info=3
+    Z=12.000000 Info=3
+  Y=12.000000
+    Z=12.000000 Info=4
+    Z=12.000000 Info=4
+    Z=12.000000 Info=4
+    Z=12.000000 Info=4
+    Z=12.000000 Info=4
+    Z=12.000000 Info=4
+    Z=12.000000 Info=4
+    Z=12.000000 Info=4
+    Z=12.000000 Info=4
+    Z=12.000000 Info=4
+
+[Info]
+Id=1
+OrderNo=1
+PosNo=1
+SecondGlassReference=10mm 1/3 lites
+RackNo=1
+SheetWidth=12.000000
+SheetHeight=12.000000
+SheetCode=1
+
+[Info]
+Id=2
+OrderNo=1
+PosNo=2
+SecondGlassReference=10mm 1/3 lites
+RackNo=2
+SheetWidth=12.000000
+SheetHeight=12.000000
+SheetCode=2
+
+[Info]
+Id=3
+OrderNo=1
+PosNo=3
+SecondGlassReference=10mm 1/3 lites
+RackNo=3
+SheetWidth=12.000000
+SheetHeight=12.000000
+SheetCode=3
+
+[Info]
+Id=4
+OrderNo=1
+PosNo=4
+SecondGlassReference=10mm 1/3 lites
+RackNo=4
+SheetWidth=12.000000
+SheetHeight=12.000000
+SheetCode=4
+

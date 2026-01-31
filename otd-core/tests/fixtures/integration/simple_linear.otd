@@ -1,0 +1,36 @@
+[Header]
+AWCutVersion=1.01.00
+OptimizationRun=1
+Dimension=inch
+Date=2024/07/30, 11:47:24
+
+[Signature]
+Creator=XCAWCUT Rel. 1.40, (c) 1995-2011 Albat + Wirsam
+
+[Pattern]
+GlassID=157
+GlassDescription=4mm 5/32"
+GlassThickness=0.157480
+Width=129.500000
+Height=95.500000
+TrimLeft=0.500000
+TrimBottom=0.500000
+X=47.812500
+  Y=37.562500 Info=1
+  Y=37.562500 Info=1
+X=47.812500
+  Y=37.562500 Info=1
+  Y=37.562500 Info=1
+
+[Info]
+Id=1
+OrderNo=703382
+PosNo=0
+Customer=LIPPERT COMPONENTS  29-Jul
+Commission=P2758
+SecondGlassReference=1698 gl20 5/32 B
+RackNo=1
+SheetWidth=47.812500
+SheetHeight=37.562500
+SheetCode=1
+
