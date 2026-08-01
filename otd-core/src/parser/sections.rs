@@ -1,7 +1,12 @@
 //! Section-specific parsers for OTD format.
 
 use crate::config::Unit;
+use crate::error::{ConvertError, Result as CvtResult};
 use crate::model::{Cut, CutType, Piece, PieceType, Shape};
+
+/// Coordinate variables used in nested [Pattern] hierarchy entries and
+/// in the break-detection for the pattern header.
+const COORD_VARS: [char; 10] = ['X', 'Y', 'Z', 'W', 'V', 'A', 'B', 'C', 'D', 'E'];
 
 /// Parse a key=value pair from a line.
 pub fn parse_key_value(line: &str) -> Option<(&str, &str)> {
@@ -38,6 +43,50 @@ pub fn parse_float_value(line: &str, key: &str) -> Option<f64> {
         v.parse().ok()
     } else {
         None
+    }
+}
+
+/// Strict variant of [`parse_float_value`] — returns an error instead of
+/// silently returning `None` when the value is present but malformed.
+///
+/// Matching the C# reference behaviour (OTD.cs:2065): `double.Parse` throws
+/// on malformed input, and the exception propagates to the converter's
+/// catch-all, aborting the conversion with `EsecuzioneFallitaNumErr`.
+pub fn parse_float_value_strict(line: &str, key: &str) -> CvtResult<Option<f64>> {
+    let (k, v) = match parse_key_value(line) {
+        Some(pair) => pair,
+        None => return Ok(None),
+    };
+    if k != key {
+        return Ok(None);
+    }
+    match v.parse() {
+        Ok(val) => Ok(Some(val)),
+        Err(_) => Err(ConvertError::InvalidValue {
+            field: key.to_string(),
+            expected: "a valid floating-point number".to_string(),
+            value: v.to_string(),
+        }),
+    }
+}
+
+/// Strict variant of [`parse_int_value`] — returns an error instead of
+/// silently returning `None` when the value is present but malformed.
+pub fn parse_int_value_strict(line: &str, key: &str) -> CvtResult<Option<i32>> {
+    let (k, v) = match parse_key_value(line) {
+        Some(pair) => pair,
+        None => return Ok(None),
+    };
+    if k != key {
+        return Ok(None);
+    }
+    match v.parse() {
+        Ok(val) => Ok(Some(val)),
+        Err(_) => Err(ConvertError::InvalidValue {
+            field: key.to_string(),
+            expected: "a valid integer".to_string(),
+            value: v.to_string(),
+        }),
     }
 }
 
@@ -100,8 +149,6 @@ pub fn parse_header(lines: &[&str]) -> HeaderData {
 
         if let Some(v) = parse_string_value(line, "OTDCutVersion") {
             data.otd_version = v;
-        } else if let Some(v) = parse_string_value(line, "AWCutVersion") {
-            data.otd_version = v;
         } else if let Some(v) = parse_string_value(line, "Dimension") {
             data.unit = Unit::from_dimension_str(&v).unwrap_or_default();
         } else if let Some(v) = parse_string_value(line, "Date") {
@@ -152,7 +199,7 @@ pub struct PatternData {
     pub trim_bottom: f64,
     pub quantity: u32,
     pub cutting_order: u8,
-    pub linear_advance: f64,
+    pub linear_advance: Option<f64>,
     pub min_angle: f64,
     pub coating_min_angle: f64,
     pub linear_tool: i32,
@@ -163,7 +210,11 @@ pub struct PatternData {
 }
 
 /// Parse [Pattern] section header fields (not the nested coordinates).
-pub fn parse_pattern_header(lines: &[&str]) -> PatternData {
+///
+/// Returns an error if any numeric field value is malformed, matching the
+/// C# reference behaviour (OTD.cs:2065): `double.Parse` / `int.Parse` throw
+/// on invalid input and the exception propagates to abort the conversion.
+pub fn parse_pattern_header(lines: &[&str]) -> CvtResult<PatternData> {
     let mut data = PatternData {
         quantity: 1,
         min_angle: 5.0,
@@ -178,57 +229,74 @@ pub fn parse_pattern_header(lines: &[&str]) -> PatternData {
             continue;
         }
 
-        // Stop when we hit nested coordinates
-        if line.starts_with("X=") || line.starts_with("Y=") || line.starts_with("Z=") {
+        // Stop when we hit nested coordinates (any coord variable).
+        // Per spec §3.3.1 and C# leggiPattern, coordinate lines have the
+        // form `<var>=<value> ...` where var is one of X/Y/Z/W/V/A/B/C/D/E.
+        // Use a two-character prefix check to disambiguate from header keys
+        // like `Width=` which start with W but are not coordinate entries.
+        if matches!(line.as_bytes().get(..2), Some([c, b'=']) if COORD_VARS.contains(&(*c as char)))
+        {
             break;
         }
 
         if let Some(v) = parse_string_value(line, "MachineName") {
             data.machine_name = v;
-        } else if let Some(v) = parse_int_value(line, "MachineNumber") {
+        } else if let Some(v) = parse_int_value_strict(line, "MachineNumber")? {
             data.machine_number = v as u16;
         } else if let Some(v) = parse_string_value(line, "GlassID") {
             data.glass_id = v;
         } else if let Some(v) = parse_string_value(line, "GlassDescription") {
             data.glass_description = v;
-        } else if let Some(v) = parse_float_value(line, "GlassThickness") {
+        } else if let Some(v) = parse_float_value_strict(line, "GlassThickness")? {
             data.thickness = v;
-        } else if let Some(v) = parse_int_value(line, "GlassStructured") {
+        } else if let Some(v) = parse_int_value_strict(line, "GlassStructured")? {
             data.glass_structured = v == 1;
-        } else if let Some(v) = parse_int_value(line, "GlassCoated") {
+        } else if let Some(v) = parse_int_value_strict(line, "GlassCoated")? {
             data.glass_coated = v == 1;
-        } else if let Some(v) = parse_float_value(line, "Width") {
+        } else if let Some(v) = parse_float_value_strict(line, "Width")? {
             data.width = v;
-        } else if let Some(v) = parse_float_value(line, "Height") {
+        } else if let Some(v) = parse_float_value_strict(line, "Height")? {
             data.height = v;
-        } else if let Some(v) = parse_float_value(line, "TrimLeft") {
+        } else if let Some(v) = parse_float_value_strict(line, "TrimLeft")? {
             data.trim_left = v;
-        } else if let Some(v) = parse_float_value(line, "TrimBottom") {
+        } else if let Some(v) = parse_float_value_strict(line, "TrimBottom")? {
             data.trim_bottom = v;
-        } else if let Some(v) = parse_int_value(line, "Pieces") {
+        } else if let Some(v) = parse_int_value_strict(line, "Pieces")? {
             data.quantity = v.max(1) as u32;
-        } else if let Some(v) = parse_int_value(line, "CuttingOrder") {
+        } else if let Some(v) = parse_int_value_strict(line, "CuttingOrder")? {
             data.cutting_order = v as u8;
-        } else if let Some(v) = parse_float_value(line, "LinearAdvance") {
-            data.linear_advance = v;
-        } else if let Some(v) = parse_float_value(line, "MinAngle") {
+        } else if let Some(v) = parse_float_value_strict(line, "LinearAdvance")? {
+            // Store as Some; the >= 0.0 guard is applied at assignment time
+            // (see OTD.cs:530-534 — leggiPattern accepts >= 0.0)
+            data.linear_advance = Some(v);
+        } else if let Some(v) = parse_float_value_strict(line, "MinAngle")? {
             data.min_angle = v;
-        } else if let Some(v) = parse_float_value(line, "CoatingMinAngle") {
+        } else if let Some(v) = parse_float_value_strict(line, "CoatingMinAngle")? {
             data.coating_min_angle = v;
-        } else if let Some(v) = parse_int_value(line, "LinearToolCode") {
-            data.linear_tool = v;
-        } else if let Some(v) = parse_int_value(line, "ToolCode1") {
-            data.shaped_tool = v;
-        } else if let Some(v) = parse_int_value(line, "ToolCode2") {
-            data.incision_tool = v;
-        } else if let Some(v) = parse_int_value(line, "ToolCode6") {
-            data.open_shaped_tool = v;
-        } else if let Some(v) = parse_int_value(line, "ShapeOptimization") {
+        } else if let Some(v) = parse_int_value_strict(line, "LinearToolCode")? {
+            // Per spec §3.3.5 and C# leggiPattern (OTD.cs:551-577):
+            // tool codes accepted only when > 0
+            if v > 0 {
+                data.linear_tool = v;
+            }
+        } else if let Some(v) = parse_int_value_strict(line, "ToolCode1")? {
+            if v > 0 {
+                data.shaped_tool = v;
+            }
+        } else if let Some(v) = parse_int_value_strict(line, "ToolCode2")? {
+            if v > 0 {
+                data.incision_tool = v;
+            }
+        } else if let Some(v) = parse_int_value_strict(line, "ToolCode6")? {
+            if v > 0 {
+                data.open_shaped_tool = v;
+            }
+        } else if let Some(v) = parse_int_value_strict(line, "ShapeOptimization")? {
             data.optimize_shape_order = v == 1;
         }
     }
 
-    data
+    Ok(data)
 }
 
 /// Nested coordinate entry from Pattern section.
@@ -252,7 +320,6 @@ pub struct CoordEntry {
 
 /// Parse nested coordinate lines from Pattern section.
 pub fn parse_pattern_coordinates(lines: &[&str]) -> Vec<CoordEntry> {
-    let coord_vars = ['X', 'Y', 'Z', 'W', 'V', 'A', 'B', 'C', 'D', 'E'];
     let mut entries = Vec::new();
 
     for line in lines {
@@ -263,7 +330,7 @@ pub fn parse_pattern_coordinates(lines: &[&str]) -> Vec<CoordEntry> {
 
         // Check if this is a coordinate line
         let first_char = line.chars().next().unwrap_or(' ');
-        if !coord_vars.contains(&first_char) {
+        if !COORD_VARS.contains(&first_char) {
             continue;
         }
 
@@ -279,12 +346,19 @@ pub fn parse_pattern_coordinates(lines: &[&str]) -> Vec<CoordEntry> {
         }
 
         let var = var_key.chars().next().unwrap();
-        let level = coord_vars.iter().position(|&c| c == var).unwrap_or(0) as i32;
+        let level = COORD_VARS.iter().position(|&c| c == var).unwrap_or(0) as i32;
 
         let value: f64 = match var_value.parse() {
             Ok(v) => v,
             Err(_) => continue,
         };
+
+        // Per spec §3.3.6.1 and reference C# leggiPattern: a hierarchy entry is
+        // accepted only when its value is strictly > 0.  Zero, negative, or
+        // unparseable values drop the line entirely (no entry, no cut, no piece).
+        if value <= 0.0 {
+            continue;
+        }
 
         let mut entry = CoordEntry {
             var,
@@ -314,7 +388,10 @@ pub fn parse_pattern_coordinates(lines: &[&str]) -> Vec<CoordEntry> {
 }
 
 /// Parse [Info] section into PieceType.
-pub fn parse_info(lines: &[&str]) -> Option<PieceType> {
+///
+/// Returns an error if any numeric field value is malformed, matching the
+/// C# reference behaviour of throwing on malformed input.
+pub fn parse_info(lines: &[&str]) -> CvtResult<Option<PieceType>> {
     let mut pt = PieceType::default();
     let mut has_id = false;
 
@@ -324,7 +401,7 @@ pub fn parse_info(lines: &[&str]) -> Option<PieceType> {
             continue;
         }
 
-        if let Some(v) = parse_int_value(line, "Id") {
+        if let Some(v) = parse_int_value_strict(line, "Id")? {
             pt.id = v;
             has_id = true;
         } else if let Some(v) = parse_string_value(line, "OrderNo") {
@@ -339,21 +416,30 @@ pub fn parse_info(lines: &[&str]) -> Option<PieceType> {
             pt.second_glass_ref = v;
         } else if let Some(v) = parse_string_value(line, "RackNo") {
             pt.rack_no = v;
-        } else if let Some(v) = parse_float_value(line, "SheetWidth") {
-            pt.sheet_width = v;
-        } else if let Some(v) = parse_float_value(line, "SheetHeight") {
-            pt.sheet_height = v;
-        } else if let Some(v) = parse_int_value(line, "SheetCode") {
-            pt.piece_code = v;
-        } else if let Some(v) = parse_int_value(line, "Waste") {
+        } else if let Some(v) = parse_float_value_strict(line, "SheetWidth")? {
+            // Per spec §3.7 and C# leggiInfo: SheetWidth accepted only when > 0.0
+            if v > 0.0 {
+                pt.sheet_width = v;
+            }
+        } else if let Some(v) = parse_float_value_strict(line, "SheetHeight")? {
+            // Per spec §3.7 and C# leggiInfo: SheetHeight accepted only when > 0.0
+            if v > 0.0 {
+                pt.sheet_height = v;
+            }
+        } else if let Some(v) = parse_int_value_strict(line, "SheetCode")? {
+            // Per C# leggiInfo: SheetCode accepted only when > 0
+            if v > 0 {
+                pt.piece_code = v;
+            }
+        } else if let Some(v) = parse_int_value_strict(line, "Waste")? {
             pt.waste = v == 1;
         }
     }
 
     if has_id {
-        Some(pt)
+        Ok(Some(pt))
     } else {
-        None
+        Ok(None)
     }
 }
 
@@ -434,6 +520,12 @@ pub fn parse_geometry_line(line: &str) -> Option<Cut> {
     let yi = yi?;
     let xf = xf?;
     let yf = yf?;
+
+    // Per spec §3.6.4 and C# leggiShape (OTD.cs:1537-1538): R= and L= are
+    // mutually exclusive. An entity carrying both is dropped silently.
+    if radius_cw.is_some() && radius_ccw.is_some() {
+        return None;
+    }
 
     let mut cut = if let Some(r) = radius_cw {
         Cut::new_arc_cw(xi, yi, xf, yf, r)
@@ -525,6 +617,12 @@ pub fn parse_cuttings(lines: &[&str]) -> (Vec<Cut>, Vec<Piece>) {
                     "y" => cut.yi = val.parse().unwrap_or(0.0),
                     "X" => cut.xf = val.parse().unwrap_or(0.0),
                     "Y" => cut.yf = val.parse().unwrap_or(0.0),
+                    // TODO(§3.4.4): Hierarchy cuts store livelloTaglio + 1
+                    // (C# Taglio.cs:137) but Cuttings cuts store Levcut verbatim
+                    // (C# Taglio.cs:198). If a producer numbers first-level cuts
+                    // Levcut=0, Cuttings cuts will be off by 1 relative to
+                    // Hierarchy cuts. No production files with [Cuttings] exist
+                    // to verify — this is an open question.
                     "Levcut" => cut.level = val.parse().unwrap_or(0),
                     "Rot" => cut.rotation = val.parse().unwrap_or(0.0),
                     "Qcut" => cut.quota = val.parse().unwrap_or(0.0),
@@ -533,6 +631,10 @@ pub fn parse_cuttings(lines: &[&str]) -> (Vec<Cut>, Vec<Piece>) {
                     "Rcut" => cut.rest = val.parse().unwrap_or(-1.0),
                     "Wcut" => {
                         if let Ok(w) = val.parse::<i32>() {
+                            // TODO(§3.4.2): is_scrap (from Wcut) is stored but
+                            // never consumed by any transform or generator.
+                            // Implement scrap-cut filtering in CNI output if the
+                            // machine needs it, or remove the field if unused.
                             cut.is_scrap = w > 0;
                         }
                     }
@@ -647,10 +749,13 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_header_awcut_version() {
+    fn test_parse_header_awcut_version_ignored() {
+        // Per spec §3.1: AWCutVersion= is not in C#'s leggiHeader switch;
+        // it hits `default: continue;` and is silently ignored.
+        // otd_version must stay empty when only AWCutVersion= is present.
         let lines = vec!["AWCutVersion=1.0"];
         let header = parse_header(&lines);
-        assert_eq!(header.otd_version, "1.0");
+        assert_eq!(header.otd_version, "");
     }
 
     // ==================== parse_pattern_header tests ====================
@@ -664,7 +769,7 @@ mod tests {
             "Height=2000",
             "GlassThickness=6.5",
         ];
-        let pattern = parse_pattern_header(&lines);
+        let pattern = parse_pattern_header(&lines).expect("should parse pattern header");
         assert_eq!(pattern.machine_name, "CNCMACHINE");
         assert_eq!(pattern.machine_number, 130);
         assert!((pattern.width - 3000.0).abs() < 0.001);
@@ -679,7 +784,7 @@ mod tests {
             "X=100",       // Should stop here
             "Height=2000", // Should not be parsed
         ];
-        let pattern = parse_pattern_header(&lines);
+        let pattern = parse_pattern_header(&lines).expect("should parse pattern header");
         assert!((pattern.width - 3000.0).abs() < 0.001);
         assert!((pattern.height - 0.0).abs() < 0.001); // Default value
     }
@@ -687,7 +792,7 @@ mod tests {
     #[test]
     fn test_parse_pattern_header_defaults() {
         let lines: Vec<&str> = vec![];
-        let pattern = parse_pattern_header(&lines);
+        let pattern = parse_pattern_header(&lines).expect("should parse pattern header");
         assert_eq!(pattern.quantity, 1);
         assert!((pattern.min_angle - 5.0).abs() < 0.001);
         assert!(pattern.optimize_shape_order);
@@ -705,7 +810,9 @@ mod tests {
             "SheetHeight=400",
             "SheetCode=42",
         ];
-        let info = parse_info(&lines).expect("Should parse info");
+        let info = parse_info(&lines)
+            .expect("parse should succeed")
+            .expect("info should be present");
         assert_eq!(info.id, 1);
         assert_eq!(info.order_no, "ORD-12345");
         assert_eq!(info.customer, "ACME Corp");
@@ -717,14 +824,16 @@ mod tests {
     #[test]
     fn test_parse_info_no_id() {
         let lines = vec!["OrderNo=ORD-12345", "Customer=ACME Corp"];
-        let info = parse_info(&lines);
+        let info = parse_info(&lines).expect("parse should succeed");
         assert!(info.is_none());
     }
 
     #[test]
     fn test_parse_info_waste_flag() {
         let lines = vec!["Id=1", "Waste=1"];
-        let info = parse_info(&lines).expect("Should parse info");
+        let info = parse_info(&lines)
+            .expect("parse should succeed")
+            .expect("info should be present");
         assert!(info.waste);
     }
 
@@ -795,6 +904,13 @@ mod tests {
     fn test_parse_geometry_line_with_ablation() {
         let cut = parse_geometry_line("x=0 y=0 X=100 Y=0 LA=5.5").expect("Should parse");
         assert!((cut.ablation_width - 5.5).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_parse_geometry_line_both_r_l_dropped() {
+        // Per spec §3.6.4: R= and L= are mutually exclusive; both present → drop
+        let cut = parse_geometry_line("x=0 y=0 X=100 Y=0 R=50 L=30");
+        assert!(cut.is_none(), "both R and L present should return None");
     }
 
     #[test]
