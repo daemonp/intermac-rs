@@ -40,6 +40,11 @@ otd-viewer
 otd-viewer path/to/layout.otd
 ```
 
+#### Viewer Screenshot
+
+<img width="2558" height="1600" alt="image" src="https://github.com/user-attachments/assets/bf9a4a20-fefe-46e0-8482-a8c27412e79c" />
+
+
 Once loaded, you can:
 
 - Pan with middle or right mouse button
