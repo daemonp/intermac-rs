@@ -88,7 +88,14 @@ impl ViewerApp {
         match parse_otd_file(&path) {
             Ok(schemas) => {
                 let num_schemas = schemas.len();
-                let total_pieces: usize = schemas.iter().map(|s| s.pieces.len()).sum();
+                let total_lites: u32 = schemas.iter().map(|s| s.quantity).sum();
+                let total_pieces_per_layout: usize = schemas.iter().map(|s| s.pieces.len()).sum();
+                let total_types: usize = schemas
+                    .iter()
+                    .flat_map(|s| &s.piece_types)
+                    .map(|pt| pt.id)
+                    .collect::<std::collections::HashSet<_>>()
+                    .len();
 
                 self.schemas = schemas;
                 self.current_schema = 0;
@@ -98,12 +105,17 @@ impl ViewerApp {
                 self.selected_piece = None;
 
                 self.status_message = format!(
-                    "Loaded: {} | {} pattern(s) | {} pieces",
+                    "Loaded: {} | {} pattern{} | {} lite{} total | {} pcs/layout ({} type{})",
                     path.file_name()
                         .map(|s| s.to_string_lossy().to_string())
                         .unwrap_or_default(),
                     num_schemas,
-                    total_pieces
+                    if num_schemas == 1 { "" } else { "s" },
+                    total_lites,
+                    if total_lites == 1 { "" } else { "s" },
+                    total_pieces_per_layout,
+                    total_types,
+                    if total_types == 1 { "" } else { "s" }
                 );
 
                 tracing::info!("Loaded {} with {} schemas", path.display(), num_schemas);
@@ -463,11 +475,76 @@ impl ViewerApp {
 
                     ui.separator();
 
+                    // Material Required
+                    ui.collapsing("Material Required", |ui| {
+                        let per_sheet = schema.pieces.len();
+                        let num_lites = schema.quantity;
+                        let total_pieces = per_sheet * num_lites as usize;
+
+                        ui.label(format!("Lites (sheets): {}", num_lites));
+                        ui.label(format!("Pieces per lite: {}", per_sheet));
+                        if num_lites > 1 {
+                            ui.label(format!("Total pieces (all lites): {}", total_pieces));
+                        }
+
+                        // Show totals across all patterns when multiple exist
+                        if self.schemas.len() > 1 {
+                            ui.separator();
+                            let total_lites_all: u32 =
+                                self.schemas.iter().map(|s| s.quantity).sum();
+                            let total_pieces_all: usize = self
+                                .schemas
+                                .iter()
+                                .map(|s| s.pieces.len() * s.quantity as usize)
+                                .sum();
+                            let num_schemas = self.schemas.len();
+                            ui.strong(format!("Across {} patterns:", num_schemas));
+                            ui.label(format!("  {} lites total", total_lites_all));
+                            ui.label(format!("  {} pieces total", total_pieces_all));
+                        }
+                    });
+
+                    ui.separator();
+
                     // Statistics
                     ui.collapsing("Statistics", |ui| {
-                        ui.label(format!("Pieces: {}", schema.pieces.len()));
+                        let num_pieces = schema.pieces.len();
+                        let num_types = schema.piece_types.len();
+                        if num_types > 0 {
+                            ui.label(format!(
+                                "Pieces: {} ({} unique type{})",
+                                num_pieces,
+                                num_types,
+                                if num_types == 1 { "" } else { "s" }
+                            ));
+                        } else {
+                            ui.label(format!("Pieces: {}", num_pieces));
+                        }
                         ui.label(format!("Linear Cuts: {}", schema.linear_cuts.len()));
                         ui.label(format!("Shapes: {}", schema.shapes.len()));
+
+                        // Piece type distribution
+                        if num_types > 0 {
+                            ui.separator();
+                            let distribution = schema.piece_distribution();
+                            for (type_id, count) in &distribution {
+                                let type_info =
+                                    schema.piece_types.iter().find(|pt| pt.id == *type_id);
+                                if let Some(info) = type_info {
+                                    let label = if !info.order_no.is_empty() {
+                                        format!(
+                                            "Type #{}: {} pcs ({}, {})",
+                                            type_id, count, info.order_no, info.customer
+                                        )
+                                    } else {
+                                        format!("Type #{}: {} pcs", type_id, count)
+                                    };
+                                    ui.label(label);
+                                } else {
+                                    ui.label(format!("Type #{}: {} pcs", type_id, count));
+                                }
+                            }
+                        }
 
                         // Calculate utilization
                         let sheet_area = schema.width * schema.height;
@@ -582,6 +659,46 @@ impl ViewerApp {
 
                         ui.separator();
                         ui.label("Pattern:");
+                    }
+
+                    // Piece count and lite info for current pattern
+                    if let Some(schema) = self.current_schema() {
+                        ui.separator();
+                        let per_sheet = schema.pieces.len();
+                        let num_lites = schema.quantity;
+                        let num_types = schema.piece_types.len();
+
+                        if num_lites > 1 {
+                            // Multi-lite pattern: show lites count
+                            let type_str = if num_types > 0 {
+                                if num_types == 1 {
+                                    " (1 type)".to_string()
+                                } else {
+                                    format!(" ({} types)", num_types)
+                                }
+                            } else {
+                                String::new()
+                            };
+                            ui.label(format!(
+                                "{} lite{} · {} pcs{}",
+                                num_lites,
+                                if num_lites == 1 { "" } else { "s" },
+                                per_sheet,
+                                type_str
+                            ));
+                        } else {
+                            // Single lite: show piece count directly
+                            let type_str = if num_types > 0 {
+                                if num_types == 1 {
+                                    " (1 type)".to_string()
+                                } else {
+                                    format!(" ({} types)", num_types)
+                                }
+                            } else {
+                                String::new()
+                            };
+                            ui.label(format!("{} pcs{}", per_sheet, type_str));
+                        }
                     }
                 });
             });
