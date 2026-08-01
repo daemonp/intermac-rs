@@ -1,6 +1,6 @@
 [package]
 name = "otd-core"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
 authors = ["Intermac"]
 description = "Core library for OTD file parsing and CNI generation"
@@ -11,10 +11,10 @@ license = "MIT"
 thiserror = "1"
 
 # Crypto for OTX decryption
-rc2 = "0.8"
-md-5 = "0.10"
-cipher = { version = "0.4", features = ["block-padding"] }
-cbc = "0.1"
+rc2 = "0.9"
+md-5 = "0.11"
+cipher = { version = "0.5", features = ["block-padding"] }
+cbc = "0.2"
 
 # Serialization
 serde = { version = "1", features = ["derive"] }

@@ -484,7 +484,7 @@ pub fn parse_otd_file(path: &Path) -> Result<Vec<Schema>> {
 /// TransformFinalBlock expects ciphertext to be a multiple of the RC2
 /// block size (8 bytes); we enforce the same constraint.
 fn decrypt_otx(encrypted: &[u8]) -> Result<String> {
-    use cipher::{BlockDecryptMut, KeyIvInit};
+    use cipher::{BlockModeDecrypt, KeyIvInit};
     use md5::{Digest, Md5};
 
     // RC2 block size
@@ -522,7 +522,7 @@ fn decrypt_otx(encrypted: &[u8]) -> Result<String> {
         })?;
 
     let decrypted = decryptor
-        .decrypt_padded_mut::<cipher::block_padding::Pkcs7>(&mut buffer)
+        .decrypt_padded::<cipher::block_padding::Pkcs7>(&mut buffer)
         .map_err(|e| ConvertError::DecryptionFailed {
             message: format!("RC2-CBC decryption failed: {}", e),
         })?;

@@ -1,13 +1,9 @@
 [workspace]
 resolver = "2"
-members = [
-    "otd-core",
-    "otd-cli",
-    "otd-viewer",
-]
+members = ["otd-core", "otd-cli", "otd-viewer"]
 
 [workspace.package]
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
 authors = ["Intermac"]
 license = "MIT"
