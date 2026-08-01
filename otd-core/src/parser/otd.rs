@@ -147,8 +147,8 @@ impl OtdParser {
             schema.date = header_data.date.clone();
             schema.creator = signature_data.creator.clone();
 
-            // Parse pattern header
-            let pattern_data = parse_pattern_header(pattern_lines);
+            // Parse pattern header (propagates numeric parse errors)
+            let pattern_data = parse_pattern_header(pattern_lines)?;
             schema.machine_name = pattern_data.machine_name;
             schema.machine_number = pattern_data.machine_number;
             schema.glass_id = pattern_data.glass_id;
@@ -162,15 +162,15 @@ impl OtdParser {
             schema.trim_bottom = pattern_data.trim_bottom;
             schema.quantity = pattern_data.quantity;
             schema.cutting_order = pattern_data.cutting_order;
-            // Apply default linear advance if not specified in OTD
-            // Standard default is 1mm, converted to current units
-            if pattern_data.linear_advance > 0.0 {
-                schema.linear_advance = pattern_data.linear_advance;
-            } else {
-                // Convert 1mm to the file's units
-                schema.linear_advance =
-                    crate::config::DEFAULT_LINEAR_ADVANCE_MM / schema.unit.to_mm_factor();
-            }
+            // Apply linear advance from OTD, or fall back to 1mm default.
+            // Per spec §3.3.4 and C# leggiPattern (OTD.cs:530-534):
+            //   - Not specified → 1 mm default (converted to file units)
+            //   - Specified and >= 0.0 → accepted (0 is a legitimate "no advance")
+            //   - Specified and < 0.0 → rejected, default stands
+            schema.linear_advance = match pattern_data.linear_advance {
+                Some(v) if v >= 0.0 => v,
+                _ => crate::config::DEFAULT_LINEAR_ADVANCE_MM / schema.unit.to_mm_factor(),
+            };
             schema.min_angle = pattern_data.min_angle;
             schema.coating_min_angle = pattern_data.coating_min_angle;
             schema.linear_tool = pattern_data.linear_tool;
@@ -191,7 +191,7 @@ impl OtdParser {
             for (section_name, section_lines) in associated {
                 match section_name.as_str() {
                     "Info" => {
-                        if let Some(piece_type) = parse_info(&section_lines) {
+                        if let Some(piece_type) = parse_info(&section_lines)? {
                             schema.piece_types.push(piece_type);
                         }
                     }
@@ -378,7 +378,15 @@ impl OtdParser {
 
             // Create linear cut
             let mut cut = Cut::new_line(xi, yi, xf, yf);
-            cut.level = levels[i];
+            // Hierarchy cuts store level = axis-index + 1, matching the
+            // C# reference (Taglio.cs:137 stores `livelloTaglio + 1`).
+            // So X/idx=0 → level 1, Y/idx=1 → level 2, etc.
+            // This 1-based convention is what downstream code expects
+            // (Schema.cs:1037 tests LivelloTaglio == 1).
+            // Trim cuts (above, at the start of this method) stay at level 0
+            // because they are synthesised by the converter, not from the hierarchy
+            // (the C# converter doesn't emit trim cuts as separate Taglio objects).
+            cut.level = levels[i] + 1;
             cut.rotation = rotations[i];
             cut.quota = values[i];
             cut.tcut = tcuts[i];
@@ -450,47 +458,77 @@ pub fn parse_otd_file(path: &Path) -> Result<Vec<Schema>> {
     parser.parse()
 }
 
-/// Decrypt an OTX file.
+/// Decrypt an OTX file per the reference C# decripta() (OTDConverter v1.3.1.19).
+///
+/// The C# code:
+/// ```csharp
+/// new RC2CryptoServiceProvider().CreateDecryptor(
+///     new PasswordDeriveBytes("%x$Intermac^(zx", null)
+///         .CryptDeriveKey("RC2", "MD5", 128, new byte[8]),
+///     new byte[8] { 68, 101, 67, 97, 114, 110, 101, 68 }  // "DeCarneD"
+/// );
+/// ```
+///
+/// Key derivation (PasswordDeriveBytes + CryptDeriveKey):
+///   1. PasswordDeriveBytes stores the password as UTF-8 bytes.
+///   2. CryptDeriveKey("RC2", "MD5", 128, ivSize) hashes the stored bytes
+///      with MD5 and uses the full 128-bit (16-byte) hash as the RC2 key.
+///      The `rgbIV` parameter (new byte[8]) is an IV-size hint for the
+///      algorithm — it does *not* change the key material.
+///   3. The result is therefore MD5(password) → 16-byte key, which is
+///      exactly what we compute below.
+///
+/// The IV is supplied separately to CreateDecryptor:[68,101,67,97,114,110,101,68]
+/// = "DeCarneD".
+///
+/// TransformFinalBlock expects ciphertext to be a multiple of the RC2
+/// block size (8 bytes); we enforce the same constraint.
 fn decrypt_otx(encrypted: &[u8]) -> Result<String> {
-    use cipher::{BlockDecryptMut, KeyIvInit};
+    use cipher::{BlockModeDecrypt, KeyIvInit};
     use md5::{Digest, Md5};
 
-    // Password and IV for OTX decryption
+    // RC2 block size
+    const BLOCK_SIZE: usize = 8;
+
+    // The .NET TransformFinalBlock requires block-aligned input.
+    if !encrypted.len().is_multiple_of(BLOCK_SIZE) {
+        return Err(ConvertError::DecryptionFailed {
+            message: format!(
+                "OTX ciphertext size {} is not a multiple of RC2 block size ({})",
+                encrypted.len(),
+                BLOCK_SIZE
+            ),
+        });
+    }
+
+    // IV: "DeCarneD"
+    let iv: [u8; BLOCK_SIZE] = [68, 101, 67, 97, 114, 110, 101, 68];
+
+    // Password bytes (ASCII-compatible, so UTF-8 encoding matches .NET's
+    // PasswordDeriveBytes internal encoding).
     let password = b"%x$Intermac^(zx";
-    let iv: [u8; 8] = [68, 101, 67, 97, 114, 110, 101, 68]; // "DeCarneD"
 
-    // Derive key using MD5 (simplified version of CryptDeriveKey)
-    let mut hasher = Md5::new();
-    hasher.update(password);
-    let hash = hasher.finalize();
-
-    // RC2 with 128-bit effective key length uses 16 bytes
-    let key: [u8; 16] = hash.into();
+    // Derive 128-bit RC2 key: MD5(password)
+    let key: [u8; 16] = Md5::digest(password).into();
 
     // Create RC2-CBC decryptor
     type Rc2CbcDec = cbc::Decryptor<rc2::Rc2>;
 
     let mut buffer = encrypted.to_vec();
 
-    // Pad to block size if needed
-    let block_size = 8;
-    let padding = block_size - (buffer.len() % block_size);
-    if padding != block_size {
-        buffer.extend(std::iter::repeat_n(padding as u8, padding));
-    }
-
     let decryptor =
         Rc2CbcDec::new_from_slices(&key, &iv).map_err(|e| ConvertError::DecryptionFailed {
-            message: format!("Failed to create decryptor: {}", e),
+            message: format!("Failed to create RC2 decryptor: {}", e),
         })?;
 
     let decrypted = decryptor
-        .decrypt_padded_mut::<cipher::block_padding::Pkcs7>(&mut buffer)
+        .decrypt_padded::<cipher::block_padding::Pkcs7>(&mut buffer)
         .map_err(|e| ConvertError::DecryptionFailed {
-            message: format!("Decryption failed: {}", e),
+            message: format!("RC2-CBC decryption failed: {}", e),
         })?;
 
+    // OTD content is ASCII per spec; reject non-UTF-8
     String::from_utf8(decrypted.to_vec()).map_err(|e| ConvertError::DecryptionFailed {
-        message: format!("Invalid UTF-8 in decrypted content: {}", e),
+        message: format!("Invalid UTF-8 in decrypted OTX content: {}", e),
     })
 }

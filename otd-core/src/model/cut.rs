@@ -176,13 +176,13 @@ impl Cut {
         let mx = self.xi + half_chord * angle.cos();
         let my = self.yi + half_chord * angle.sin();
 
-        // Distance from chord midpoint to arc center
+        // Distance from chord midpoint to arc center.
+        // Per C# reference (Taglio.cs:312): the C# converter uses
+        // Math.Sqrt(Math.Abs(...)) to guard against tiny negative values
+        // from floating-point rounding when radius ≈ chord/2 (semicircle).
+        // We match that exactly: abs().sqrt().
         let h_squared = self.radius * self.radius - half_chord * half_chord;
-        let h = if h_squared > 0.0 {
-            h_squared.sqrt()
-        } else {
-            0.0
-        };
+        let h = h_squared.abs().sqrt();
 
         // Rotate angle perpendicular to chord
         // CW (Type 2): subtract 90°, center is to the right of chord direction

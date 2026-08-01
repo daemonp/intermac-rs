@@ -685,6 +685,11 @@ impl ViewerApp {
 
     /// Handle keyboard shortcuts.
     fn handle_keyboard(&mut self, ctx: &Context) {
+        // Defer viewport commands (e.g. quit) until after the `ctx.input` read-lock
+        // is released, otherwise sending them from inside the closure would try to
+        // upgrade the same thread's read-lock to a write-lock and deadlock.
+        let mut quit_requested = false;
+
         ctx.input(|i| {
             // Ctrl+O: Open file
             if i.modifiers.ctrl && i.key_pressed(Key::O) {
@@ -693,7 +698,7 @@ impl ViewerApp {
 
             // Ctrl+Q: Quit
             if i.modifiers.ctrl && i.key_pressed(Key::Q) {
-                ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                quit_requested = true;
             }
 
             // Ctrl+E: Export PNG
@@ -777,6 +782,10 @@ impl ViewerApp {
                 self.layers.grid = !self.layers.grid;
             }
         });
+
+        if quit_requested {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+        }
     }
 
     /// Show error dialog if there's an error.

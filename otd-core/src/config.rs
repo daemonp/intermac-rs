@@ -15,11 +15,14 @@ pub const DEFAULT_LINEAR_ADVANCE_MM: f64 = 1.0;
 /// Minimum positive value for C axis (tangent mode).
 pub const MIN_VAL_C_POSITIVE: f64 = 0.001;
 
-/// Conversion factor: mm to inch.
-pub const CONV_MM_INCH: f64 = 25.4;
+/// Millimetres per inch (inch → mm factor, used in to_mm_factor).
+/// Named MM_PER_INCH rather than "conv_mm_inch" (which was the C# mm→inch
+/// factor 0.03937) to avoid confusion about the direction.
+pub const MM_PER_INCH: f64 = 25.4;
 
-/// Conversion factor: mm to Tinch (tenths of inch used in some systems).
-pub const CONV_MM_TINCH: f64 = 30.303;
+/// Millimetres per "Tinch" (a machine-specific unit ≈ 30.303 mm).
+/// The C# equivalent is conv_mm_tinch = 1.0 / MM_PER_TINCH ≈ 0.033.
+pub const MM_PER_TINCH: f64 = 30.303;
 
 /// Minimum piece dimension for score-only cutting.
 pub const DIM_MIN_PEZZO_SOLO_INCISIONE: f64 = 100.0;
@@ -71,8 +74,8 @@ impl Unit {
     pub fn to_mm_factor(&self) -> f64 {
         match self {
             Unit::Millimeters => 1.0,
-            Unit::Inches => CONV_MM_INCH,
-            Unit::TenthsOfInch => CONV_MM_TINCH,
+            Unit::Inches => MM_PER_INCH,
+            Unit::TenthsOfInch => MM_PER_TINCH,
         }
     }
 

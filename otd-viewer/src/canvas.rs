@@ -89,8 +89,8 @@ fn render_grid(painter: &Painter, schema: &Schema, transform: &ViewTransform, ca
         spacing /= 2.0;
     }
 
-    let minor_stroke = Stroke::new(1.0, theme::GRID_LINES);
-    let major_stroke = Stroke::new(1.5, theme::GRID_MAJOR);
+    let minor_stroke = Stroke::new(1.0_f32, theme::GRID_LINES);
+    let major_stroke = Stroke::new(1.5_f32, theme::GRID_MAJOR);
 
     // Draw vertical lines
     let mut x = 0.0;
@@ -245,7 +245,7 @@ fn render_waste_regions(
 /// Draw diagonal hatch lines in a rectangle.
 fn draw_hatch_pattern(painter: &Painter, rect: Rect, color: egui::Color32) {
     let spacing = 8.0;
-    let stroke = Stroke::new(1.0, color);
+    let stroke = Stroke::new(1.0_f32, color);
 
     let width = rect.width();
     let height = rect.height();
